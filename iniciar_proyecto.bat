@@ -22,3 +22,4 @@ echo   SISTEMA ACTIVO CON EXITO!
 echo   Abre tu navegador en: http://localhost:5173
 echo ========================================================
 pause
+
