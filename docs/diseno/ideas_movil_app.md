@@ -27,3 +27,4 @@ Escribe aquí tus ideas para la experiencia en teléfonos celulares:
 
 ### 3. Notas o Referencias Visuales
 * (Escribe aquí cualquier otra función que se te ocurra para el celular)
+

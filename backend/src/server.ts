@@ -3,6 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './config/db.js';
 
+// Controladores para las vistas de PC y Móvil
+import { getRackHabitaciones } from './controllers/rack.controller.js';
+import { getFormularioCamarera, crearReporteCamarera } from './controllers/solicitudes.controller.js';
+import { getTecnicosSugeridos, asignarTecnicoAHabitacion } from './controllers/tecnicos.controller.js';
+
 dotenv.config();
 
 const app = express();
@@ -12,45 +17,35 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Endpoint de verificación de salud y prueba de conexión a MySQL
+// 1. Endpoint de verificación del servidor
 app.get('/api/salud', async (_req: Request, res: Response) => {
   try {
-    // 1. Consulta SQL simple para probar el motor
-    const [testRows]: any = await pool.query('SELECT 1 + 1 AS prueba, NOW() AS hora_bd');
-
-    // 2. Consultas a las tablas reales del Hotel Cortéz
-    const [ubicaciones]: any = await pool.query('SELECT COUNT(*) AS total FROM ubicacion');
-    const [empleados]: any = await pool.query('SELECT COUNT(*) AS total FROM empleado');
-    const [especialidades]: any = await pool.query('SELECT COUNT(*) AS total FROM especialidad');
-
+    const [testRows]: any = await pool.query('SELECT NOW() AS hora_bd');
     res.json({
       status: 'success',
       mensaje: 'Servidor del Hotel Cortéz en línea y conectado a MySQL 🏨',
-      servidor: {
-        puerto: PORT,
-        hora_bd: testRows[0].hora_bd
-      },
-      datos_hotel: {
-        total_ubicaciones_cargadas: ubicaciones[0].total,
-        total_empleados_activos: empleados[0].total,
-        total_especialidades: especialidades[0].total
-      }
+      hora_bd: testRows[0].hora_bd
     });
   } catch (error: any) {
-    console.error('Error de conexión con MySQL:', error);
-    res.status(500).json({
-      status: 'error',
-      mensaje: 'Error conectando con la base de datos MySQL',
-      error: error.message
-    });
+    res.status(500).json({ status: 'error', error: error.message });
   }
 });
+
+// 2. ENDPOINTS PARA LA PANTALLA DE PC (Rack y Monitor de Habitaciones)
+app.get('/api/rack', getRackHabitaciones);
+app.get('/api/tecnicos/sugeridos', getTecnicosSugeridos);
+app.post('/api/tecnicos/asignar', asignarTecnicoAHabitacion);
+
+// 3. ENDPOINTS PARA LA PANTALLA MÓVIL (Gobernanza / Mucamas)
+app.get('/api/solicitudes/formulario-camarera', getFormularioCamarera);
+app.post('/api/solicitudes/reportar', crearReporteCamarera);
 
 // Arrancar servidor
 app.listen(PORT, () => {
   console.log('==================================================');
-  console.log(`🏨 Servidor Backend del Hotel Cortéz ACTIVO`);
-  console.log(`🌐 URL Local: http://localhost:${PORT}`);
-  console.log(`📡 Comprobación: http://localhost:${PORT}/api/salud`);
+  console.log(`🏨 API REST Hotel Cortéz (CMMS) ACTIVA`);
+  console.log(`👉 http://localhost:${PORT}`);
+  console.log(`💻 Rack Habitaciones PC: http://localhost:${PORT}/api/rack`);
+  console.log(`📱 Formulario Camarera Móvil: http://localhost:${PORT}/api/solicitudes/formulario-camarera`);
   console.log('==================================================');
 });

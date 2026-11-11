@@ -30,3 +30,4 @@ Escribe aquí tus ideas libres, requerimientos visuales o pega enlaces de refere
 
 ### 5. Notas Adicionales
 * (Cualquier detalle que consideres importante)
+
