@@ -48,3 +48,4 @@ Para levantar la base de datos en tu equipo local:
 * **Backend:** Node.js, Express, TypeScript, `mysql2`, JWT, Bcrypt.
 * **Frontend:** React, Vite, Tailwind CSS (PWA instalable).
 * **Control de Versiones:** Git y GitHub.
+

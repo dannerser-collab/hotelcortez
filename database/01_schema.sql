@@ -200,3 +200,4 @@ CREATE INDEX idx_incidente_estado ON incidente (id_estado);
 CREATE INDEX idx_incidente_prioridad ON incidente (id_prioridad);
 CREATE INDEX idx_asignacion_tecnico ON asignacion (id_tecnico);
 CREATE INDEX idx_asignacion_fechas ON asignacion (fecha_inicio, fecha_fin);
+

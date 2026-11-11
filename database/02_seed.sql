@@ -114,3 +114,4 @@ INSERT INTO material (id_material, nombre_mat, unidad_medida, stock) VALUES
 (6, 'Cartucho de silicona antihongos transparente', 'Unidad', 12.00),
 (7, 'Cinta aislante 3M negra 20 metros', 'Rollo', 30.00),
 (8, 'Válvula de descarga para inodoro', 'Unidad', 10.00);
+
