@@ -3,49 +3,61 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pool from './config/db.js';
 
-// Controladores para las vistas de PC y Móvil
-import { getRackHabitaciones } from './controllers/rack.controller.js';
-import { getFormularioCamarera, crearReporteCamarera } from './controllers/solicitudes.controller.js';
-import { getTecnicosSugeridos, asignarTecnicoAHabitacion } from './controllers/tecnicos.controller.js';
+import {
+  getHabitacionesMucama,
+  reportarFallaMucama,
+  getSolicitudesParaTecnico,
+  atenderSolicitudTecnico,
+  finalizarTareaTecnico,
+  getDashboardSupervisor
+} from './controllers/hotel_v2.controller.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares globales
 app.use(cors());
 app.use(express.json());
 
-// 1. Endpoint de verificación del servidor
+// Endpoint de verificación de salud
 app.get('/api/salud', async (_req: Request, res: Response) => {
   try {
-    const [testRows]: any = await pool.query('SELECT NOW() AS hora_bd');
+    const [test]: any = await pool.query('SELECT NOW() AS hora_bd');
+    const [habs]: any = await pool.query('SELECT COUNT(*) AS total FROM habitacion');
     res.json({
       status: 'success',
-      mensaje: 'Servidor del Hotel Cortéz en línea y conectado a MySQL 🏨',
-      hora_bd: testRows[0].hora_bd
+      mensaje: 'Servidor Hotel Cortéz V2 en línea y conectado a MySQL 🏨',
+      hora_bd: test[0].hora_bd,
+      total_habitaciones: habs[0].total
     });
   } catch (error: any) {
     res.status(500).json({ status: 'error', error: error.message });
   }
 });
 
-// 2. ENDPOINTS PARA LA PANTALLA DE PC (Rack y Monitor de Habitaciones)
-app.get('/api/rack', getRackHabitaciones);
-app.get('/api/tecnicos/sugeridos', getTecnicosSugeridos);
-app.post('/api/tecnicos/asignar', asignarTecnicoAHabitacion);
+// =======================================================
+// RUTAS SEGÚN LA JERARQUÍA DEL HOTEL CORTÉZ
+// =======================================================
 
-// 3. ENDPOINTS PARA LA PANTALLA MÓVIL (Gobernanza / Mucamas)
-app.get('/api/solicitudes/formulario-camarera', getFormularioCamarera);
-app.post('/api/solicitudes/reportar', crearReporteCamarera);
+// 1. MUCAMAS (Realizan solicitudes, se les asignan habitaciones)
+app.get('/api/mucama/habitaciones', getHabitacionesMucama);
+app.post('/api/mucama/reportar', reportarFallaMucama);
 
-// Arrancar servidor
+// 2. TÉCNICOS (Reciben solicitudes, generan asignaciones, determinan atributos e info de materiales)
+app.get('/api/tecnico/solicitudes', getSolicitudesParaTecnico);
+app.post('/api/tecnico/atender', atenderSolicitudTecnico);
+app.patch('/api/tecnico/finalizar', finalizarTareaTecnico);
+
+// 3. SUPERVISOR (Acceso general a incidentes, solicitudes y asignaciones)
+app.get('/api/supervisor/dashboard', getDashboardSupervisor);
+
 app.listen(PORT, () => {
   console.log('==================================================');
-  console.log(`🏨 API REST Hotel Cortéz (CMMS) ACTIVA`);
+  console.log(`🏨 API REST Hotel Cortéz (Modelo V2) ACTIVA`);
   console.log(`👉 http://localhost:${PORT}`);
-  console.log(`💻 Rack Habitaciones PC: http://localhost:${PORT}/api/rack`);
-  console.log(`📱 Formulario Camarera Móvil: http://localhost:${PORT}/api/solicitudes/formulario-camarera`);
+  console.log(`🧹 Mucama: http://localhost:${PORT}/api/mucama/habitaciones`);
+  console.log(`🔧 Técnico: http://localhost:${PORT}/api/tecnico/solicitudes`);
+  console.log(`👔 Supervisor: http://localhost:${PORT}/api/supervisor/dashboard`);
   console.log('==================================================');
 });
