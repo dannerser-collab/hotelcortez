@@ -36,21 +36,49 @@ function cleanText(text: string | undefined | null): string {
 }
 
 async function api(path: string, body?: any, method = 'GET') {
-    const response = await fetch('/api' + path, {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + (sessionStorage.getItem('hc-token') || '')
-        },
-        body: body ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(12000)
-    });
-    const data = await response.json();
+    let response: Response;
+    try {
+        response = await fetch('/api' + path, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + (sessionStorage.getItem('hc-token') || '')
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: AbortSignal.timeout(12000)
+        });
+    } catch (err: any) {
+        throw new Error('No se pudo conectar con el servidor Backend (puerto 3000). Asegúrate de que el backend esté iniciado.');
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    let data: any = null;
+
+    if (contentType.includes('application/json')) {
+        try {
+            data = await response.json();
+        } catch {
+            data = null;
+        }
+    }
+
     if (!response.ok) {
         if (response.status === 401 && path !== '/auth/login')
             window.dispatchEvent(new Event('hc-expired'));
-        throw new Error(data.mensaje || 'No se pudo completar la operación.');
+        
+        if (data && data.mensaje) {
+            throw new Error(data.mensaje);
+        }
+        if (!contentType.includes('application/json')) {
+            throw new Error('El backend (puerto 3000) no respondió correctamente. Verifica que el servidor Express y MySQL estén activos.');
+        }
+        throw new Error('No se pudo completar la operación (Error ' + response.status + ').');
     }
+
+    if (data === null) {
+        throw new Error('Respuesta inesperada del servidor.');
+    }
+
     return data;
 }
 
