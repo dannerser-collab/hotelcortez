@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+const base=process.env.TEST_API||'http://127.0.0.1:3001/api';
+async function request(path,token,body,method=body?'POST':'GET') { const r=await fetch(base+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(10000)});return {status:r.status,data:await r.json()}; }
+const login=async id=>{const r=await request('/auth/login',null,{id,password:'admin123'});assert.equal(r.status,200,JSON.stringify(r));return r.data.token;};
+assert.equal((await request('/datos')).status,401);
+assert.equal((await request('/auth/login',null,{id:1,password:'incorrecta'})).status,401);
+const m=await login(1),t=await login(2),other=await login(3),s=await login(5);
+assert.equal((await request('/tecnico/atender',m,{})).status,403);
+assert.equal((await request('/mucama/reportar',s,{})).status,403);
+const initial=await request('/datos',m);assert.equal(initial.status,200,JSON.stringify(initial));
+assert(initial.data.solicitudes.every(x=>x.id_empleado===1));
+const room=initial.data.habitaciones.find(h=>h.estado)||initial.data.habitaciones[0];
+assert.equal((await request('/mucama/reportar',m,{numero_habitacion:'NO-EXISTE',problema:'prueba'})).status,404);
+const marker='[PRUEBA BETA] '+new Date().toISOString();
+const report=await request('/mucama/reportar',m,{numero_habitacion:room.numero,problema:marker,foto:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='});assert.equal(report.status,201,JSON.stringify(report));
+const id=report.data.id_solicitud;
+const technical=await request('/datos',t);assert.equal(technical.status,200,JSON.stringify(technical));assert(technical.data.solicitudes.find(x=>x.id_solicitud===id&&x.problema===marker&&x.foto));
+const payload={id_solicitud:id,id_tipo_incidente:technical.data.tipos[0].id_tipo_incidente,nivel_prioridad:2,observaciones_tecnico:marker+' diagnóstico',materiales:[{id_material:technical.data.materiales[0].id_material,cantidad:1}]};
+const [a,b]=await Promise.all([request('/tecnico/atender',t,payload),request('/tecnico/atender',other,payload)]);assert.deepEqual([a.status,b.status].sort(),[201,409]);
+const winner=a.status===201?t:other,loser=a.status===201?other:t,incident=(a.status===201?a:b).data.id_incidente;
+assert.equal((await request('/tecnico/finalizar',loser,{id_incidente:incident},'PATCH')).status,403);
+const supervisor=await request('/datos',s);assert.equal(supervisor.status,200);assert(supervisor.data.solicitudes.find(x=>x.id_solicitud===id&&x.id_incidente===incident&&x.materiales));
+assert.equal((await request('/tecnico/finalizar',winner,{id_incidente:incident},'PATCH')).status,200);
+assert.equal((await request('/tecnico/finalizar',winner,{id_incidente:incident},'PATCH')).status,409);
+assert.equal((await request('/datos',s)).data.solicitudes.find(x=>x.id_solicitud===id).resuelto,1);
+await request('/auth/logout',m,{});assert.equal((await request('/datos',m)).status,401);
+console.log('PASS: MySQL, login, permisos, historial propio, reporte con foto, recepción, asignación concurrente, materiales, supervisor, cierre y logout.');
+console.log('Registro de prueba conservado:',id,marker);

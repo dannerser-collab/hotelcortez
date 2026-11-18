@@ -111,3 +111,4 @@ INSERT INTO asignacion_material (id_asignacion, id_material, cantidad) VALUES
 
 INSERT INTO incidente (id_incidente, id_tipo_incidente, id_asignacion, id_solicitud, id_supervisor, id_prioridad, id_estado, observacion) VALUES
 (1, 5, 1, 1, 1, 1, 1, 'Alta — Bloquea Check-in de las 15:00. Habitación con reserva.');
+

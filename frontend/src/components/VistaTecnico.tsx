@@ -383,3 +383,4 @@ export const VistaTecnico: React.FC = () => {
     </div>
   );
 };
+

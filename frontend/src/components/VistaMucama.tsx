@@ -230,3 +230,4 @@ export const VistaMucama: React.FC = () => {
     </div>
   );
 };
+

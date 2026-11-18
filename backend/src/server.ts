@@ -1,63 +1,23 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import pool from './config/db.js';
-
-import {
-  getHabitacionesMucama,
-  reportarFallaMucama,
-  getSolicitudesParaTecnico,
-  atenderSolicitudTecnico,
-  finalizarTareaTecnico,
-  getDashboardSupervisor
-} from './controllers/hotel_v2.controller.js';
-
-dotenv.config();
-
+import { betaRouter } from './beta.js';
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(cors());
-app.use(express.json());
-
-// Endpoint de verificación de salud
-app.get('/api/salud', async (_req: Request, res: Response) => {
-  try {
-    const [test]: any = await pool.query('SELECT NOW() AS hora_bd');
-    const [habs]: any = await pool.query('SELECT COUNT(*) AS total FROM habitacion');
-    res.json({
-      status: 'success',
-      mensaje: 'Servidor Hotel Cortéz V2 en línea y conectado a MySQL 🏨',
-      hora_bd: test[0].hora_bd,
-      total_habitaciones: habs[0].total
-    });
-  } catch (error: any) {
-    res.status(500).json({ status: 'error', error: error.message });
-  }
+app.use(express.json({ limit: '6mb' }));
+app.get('/api/salud', async (_req, res) => {
+    try {
+        const [rows]: any = await pool.query('SELECT COUNT(*) AS habitaciones FROM habitacion');
+        res.json({ status: 'success', mysql: true, ...rows[0] });
+    }
+    catch {
+        res.status(503).json({ mensaje: 'No se pudo conectar con MySQL.' });
+    }
 });
-
-// =======================================================
-// RUTAS SEGÚN LA JERARQUÍA DEL HOTEL CORTÉZ
-// =======================================================
-
-// 1. MUCAMAS (Realizan solicitudes, se les asignan habitaciones)
-app.get('/api/mucama/habitaciones', getHabitacionesMucama);
-app.post('/api/mucama/reportar', reportarFallaMucama);
-
-// 2. TÉCNICOS (Reciben solicitudes, generan asignaciones, determinan atributos e info de materiales)
-app.get('/api/tecnico/solicitudes', getSolicitudesParaTecnico);
-app.post('/api/tecnico/atender', atenderSolicitudTecnico);
-app.patch('/api/tecnico/finalizar', finalizarTareaTecnico);
-
-// 3. SUPERVISOR (Acceso general a incidentes, solicitudes y asignaciones)
-app.get('/api/supervisor/dashboard', getDashboardSupervisor);
-
-app.listen(PORT, () => {
-  console.log('==================================================');
-  console.log(`🏨 API REST Hotel Cortéz (Modelo V2) ACTIVA`);
-  console.log(`👉 http://localhost:${PORT}`);
-  console.log(`🧹 Mucama: http://localhost:${PORT}/api/mucama/habitaciones`);
-  console.log(`🔧 Técnico: http://localhost:${PORT}/api/tecnico/solicitudes`);
-  console.log(`👔 Supervisor: http://localhost:${PORT}/api/supervisor/dashboard`);
-  console.log('==================================================');
+app.use('/api', betaRouter);
+app.use((_req, res) => { res.status(404).json({ mensaje: 'Ruta no encontrada.' }); });
+app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error(error.code || error.message);
+    res.status(error.status || 500).json({ mensaje: error.status ? error.message : 'Error del servidor. Comprueba la conexión y los datos de MySQL.' });
 });
+app.listen(Number(process.env.PORT) || 3000, '0.0.0.0', () => console.log('Hotel Cortéz API: puerto ' + (process.env.PORT || 3000)));

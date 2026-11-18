@@ -422,3 +422,4 @@ export async function getDashboardSupervisor(_req: Request, res: Response) {
     res.status(500).json({ status: 'error', mensaje: error.message });
   }
 }
+

@@ -291,3 +291,4 @@ export const VistaSupervisor: React.FC = () => {
     </div>
   );
 };
+

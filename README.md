@@ -49,3 +49,7 @@ Para levantar la base de datos en tu equipo local:
 * **Frontend:** React, Vite, Tailwind CSS (PWA instalable).
 * **Control de Versiones:** Git y GitHub.
 
+
+## Versión beta con acceso por rol
+
+Consulta [la guía de la beta](docs/BETA.md) para preparar la migración aditiva, iniciar los servidores, acceder con ID y contraseña y probar desde celular y PC. La beta usa los roles y las tablas del modelo V2; la lista antigua de correos y contraseñas de este README corresponde al prototipo anterior.

@@ -1,7 +1,5 @@
--- ========================================================================
 -- NUEVO MODELO FÍSICO DE BASE DE DATOS - HOTEL CORTÉZ
--- Archivo: 01_nuevo_schema.sql
--- ========================================================================
+
 
 CREATE DATABASE IF NOT EXISTS hotel_cortez
   CHARACTER SET utf8mb4
@@ -159,3 +157,4 @@ CREATE TABLE incidente (
     CONSTRAINT fk_inc_prioridad FOREIGN KEY (id_prioridad) REFERENCES prioridad(id_prioridad),
     CONSTRAINT fk_inc_estado FOREIGN KEY (id_estado) REFERENCES estado_incidente(id_estado)
 ) ENGINE=InnoDB;
+
