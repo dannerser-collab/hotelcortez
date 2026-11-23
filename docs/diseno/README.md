@@ -2,6 +2,7 @@
 
 Esta carpeta está destinada exclusivamente a recopilar ideas visuales, bocetos, paleta de colores, referencias y mockups sin interferir con el código fuente del proyecto.
 
+
 ---
 
 ## 📂 Archivos disponibles:

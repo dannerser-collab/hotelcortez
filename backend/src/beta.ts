@@ -40,6 +40,50 @@ function fixEncoding(val: any): any {
     return val;
 }
 
+// ---------------------------------------------------------------------------
+// Migración aditiva automática (equivalente a database/04_turnos_prioridad.sql)
+// ---------------------------------------------------------------------------
+export async function ensureSchema() {
+    await pool.query('INSERT INTO prioridad (nivel_prioridad) SELECT 0 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM prioridad WHERE nivel_prioridad = 0)');
+    await pool.query(`CREATE TABLE IF NOT EXISTS beta_empleado_turno (
+        id_empleado INT PRIMARY KEY,
+        turno ENUM('MANANA','TARDE','NOCHE') NOT NULL DEFAULT 'MANANA',
+        CONSTRAINT fk_beta_turno_empleado FOREIGN KEY (id_empleado) REFERENCES empleado(id_empleado)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS beta_solicitud_ocupacion (
+        id_solicitud INT PRIMARY KEY,
+        ocupacion ENUM('VACIA','OCUPADA','RESERVADA') NULL,
+        nivel_prioridad INT NOT NULL DEFAULT 2,
+        tecnico_asignado INT NULL,
+        asignado_por INT NULL,
+        fecha_asignado DATETIME NULL,
+        CONSTRAINT fk_beta_ocup_solicitud FOREIGN KEY (id_solicitud) REFERENCES solicitud(id_solicitud) ON DELETE CASCADE,
+        CONSTRAINT fk_beta_ocup_tecnico FOREIGN KEY (tecnico_asignado) REFERENCES empleado(id_empleado),
+        CONSTRAINT fk_beta_ocup_asignador FOREIGN KEY (asignado_por) REFERENCES empleado(id_empleado)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    await pool.query(`INSERT IGNORE INTO beta_empleado_turno (id_empleado, turno)
+        SELECT id_empleado, CASE id_empleado WHEN 2 THEN 'MANANA' WHEN 3 THEN 'TARDE' WHEN 4 THEN 'NOCHE' ELSE 'MANANA' END
+        FROM empleado WHERE rol = 'TECNICO'`);
+}
+
+const TURNOS = ['MANANA', 'TARDE', 'NOCHE'];
+
+// Mañana 06:00-13:59, Tarde 14:00-21:59, Noche 22:00-05:59 (hora local del servidor)
+function turnoActual(date = new Date()) {
+    const h = date.getHours();
+    if (h >= 6 && h < 14) return 'MANANA';
+    if (h >= 14 && h < 22) return 'TARDE';
+    return 'NOCHE';
+}
+
+// Estado de la habitación -> prioridad. 0 Urgente, 1 Alta, 2 Media, 3 Baja
+function prioridadPorOcupacion(ocupacion: string, nivelVacia: any) {
+    if (ocupacion === 'OCUPADA') return 0;
+    if (ocupacion === 'RESERVADA') return 1;
+    const n = Number(nivelVacia);
+    return n === 3 ? 3 : 2;
+}
+
 const sessions = new Map<string, {
     user: Usuario;
     expires: number;
@@ -117,10 +161,13 @@ betaRouter.get('/datos', wrap(async (_req, res) => {
     const user: Usuario = res.locals.user;
     const [habitaciones]: any = await pool.query(`SELECT h.*, b.bloque, bm.id_empleado AS mucama_id FROM habitacion h JOIN bloque b USING(id_bloque) LEFT JOIN beta_habitacion_mucama bm USING(id_habitacion) ${user.rol === 'MUCAMA' ? 'WHERE bm.id_empleado=?' : ''} ORDER BY b.bloque, h.numero`, user.rol === 'MUCAMA' ? [user.id_empleado] : []);
     const [solicitudes]: any = await pool.query(`SELECT s.*, f.foto, h.numero, h.piso, b.bloque, h.id_habitacion, CONCAT(e.nombre,' ',e.apellido) AS reportado_por,
+ o.ocupacion, COALESCE(p.nivel_prioridad, o.nivel_prioridad, 2) AS nivel_solicitud, o.tecnico_asignado, o.fecha_asignado,
+ CONCAT(ta.nombre,' ',ta.apellido) AS tecnico_asignado_nombre, CONCAT(ap.nombre,' ',ap.apellido) AS asignado_por_nombre,
  i.id_incidente, i.observacion, i.id_prioridad, p.nivel_prioridad, ei.estado AS resuelto, a.id_asignacion, a.id_empleado AS tecnico_id, a.fecha_fin, a.hora_fin, a.fecha_asignacion, a.hora_asignacion,
  CONCAT(t.nombre,' ',t.apellido) AS tecnico, ti.descripcion AS tipo_averia,
  (SELECT GROUP_CONCAT(CONCAT(m.nombre_mat,' (x',am.cantidad,')') SEPARATOR ', ') FROM asignacion_material am JOIN material m USING(id_material) WHERE am.id_asignacion=a.id_asignacion) AS materiales
  FROM solicitud s LEFT JOIN beta_solicitud_foto f USING(id_solicitud) JOIN empleado e ON e.id_empleado=s.id_empleado JOIN solicitud_habitacion sh USING(id_solicitud)
+ LEFT JOIN beta_solicitud_ocupacion o ON o.id_solicitud=s.id_solicitud LEFT JOIN empleado ta ON ta.id_empleado=o.tecnico_asignado LEFT JOIN empleado ap ON ap.id_empleado=o.asignado_por
  JOIN habitacion h USING(id_habitacion) JOIN bloque b USING(id_bloque)
  LEFT JOIN incidente i USING(id_solicitud) LEFT JOIN prioridad p ON p.id_prioridad=i.id_prioridad LEFT JOIN estado_incidente ei ON ei.id_estado=i.id_estado
  LEFT JOIN asignacion a ON a.id_asignacion=i.id_asignacion LEFT JOIN empleado t ON t.id_empleado=a.id_empleado
@@ -129,7 +176,12 @@ betaRouter.get('/datos', wrap(async (_req, res) => {
     const [tipos] = await pool.query('SELECT * FROM tipo_incidente');
     const [materiales] = await pool.query('SELECT * FROM material ORDER BY nombre_mat');
     const [mucamas] = user.rol === 'SUPERVISOR' ? await pool.query("SELECT id_empleado,nombre,apellido FROM empleado WHERE rol='MUCAMA' AND id_estado_empleado=1") : [[]];
-    res.json(fixEncoding({ habitaciones, solicitudes, tipos, materiales, mucamas }));
+    const [tecnicos] = user.rol !== 'MUCAMA'
+        ? await pool.query(`SELECT e.id_empleado, e.nombre, e.apellido, COALESCE(t.turno,'MANANA') AS turno,
+            (SELECT COUNT(*) FROM incidente i JOIN asignacion a USING(id_asignacion) JOIN estado_incidente ei USING(id_estado) WHERE a.id_empleado=e.id_empleado AND ei.estado=FALSE) AS activos
+            FROM empleado e LEFT JOIN beta_empleado_turno t USING(id_empleado) WHERE e.rol='TECNICO' AND e.id_estado_empleado=1 ORDER BY e.nombre`)
+        : [[]];
+    res.json(fixEncoding({ habitaciones, solicitudes, tipos, materiales, mucamas, tecnicos, turno_actual: turnoActual() }));
 }));
 
 async function transaction(fn: (c: any) => Promise<any>) {
@@ -151,6 +203,10 @@ betaRouter.post('/mucama/reportar', roles('MUCAMA'), wrap(async (req, res) => {
     const numero = String(req.body.numero_habitacion || '').trim();
     const problema = String(req.body.problema || '').trim();
     const foto = String(req.body.foto || '');
+    const ocupacion = String(req.body.ocupacion || '').toUpperCase();
+    if (!['VACIA', 'OCUPADA', 'RESERVADA'].includes(ocupacion))
+        fail(400, 'Indica si la habitación está vacía, ocupada o reservada.');
+    const nivel = prioridadPorOcupacion(ocupacion, req.body.nivel_vacia);
     if (foto && (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(foto) || foto.length > 2800000))
         fail(400, 'Foto inválida o mayor a 2 MB.');
     if (!numero || !problema || problema.length > 8000)
@@ -182,15 +238,18 @@ betaRouter.post('/mucama/reportar', roles('MUCAMA'), wrap(async (req, res) => {
         if (foto)
             await c.query('INSERT INTO beta_solicitud_foto(id_solicitud,foto) VALUES(?,?)', [s.insertId, foto]);
         await c.query('INSERT INTO solicitud_habitacion VALUES(?,?)', [s.insertId, h[0].id_habitacion]);
+        await c.query('INSERT INTO beta_solicitud_ocupacion(id_solicitud,ocupacion,nivel_prioridad) VALUES(?,?,?)', [s.insertId, ocupacion, nivel]);
         await c.query('UPDATE habitacion SET estado=FALSE WHERE id_habitacion=?', [h[0].id_habitacion]);
         const piso = h[0].piso || Number(numero[0]) || 1;
-        return { id_solicitud: s.insertId, numero, piso, bloque: piso * 100 };
+        return { id_solicitud: s.insertId, numero, piso, bloque: piso * 100, nivel_prioridad: nivel };
     });
     res.status(201).json(result);
 }));
 
 betaRouter.post('/tecnico/atender', roles('TECNICO'), wrap(async (req, res) => {
-    const solicitud = id(req.body.id_solicitud), tipo = id(req.body.id_tipo_incidente), prioridad = id(req.body.nivel_prioridad);
+    const solicitud = id(req.body.id_solicitud), tipo = id(req.body.id_tipo_incidente), prioridad = Number(req.body.nivel_prioridad);
+    if (![0, 1, 2, 3].includes(prioridad))
+        fail(400, 'Prioridad inválida.');
     const observacion = String(req.body.observaciones_tecnico || '').trim();
     if (!observacion || observacion.length > 8000)
         fail(400, 'Completa el diagnóstico (máximo 8000 caracteres).');
@@ -220,13 +279,28 @@ betaRouter.post('/tecnico/atender', roles('TECNICO'), wrap(async (req, res) => {
         const [existing] = await c.query('SELECT id_incidente FROM incidente WHERE id_solicitud=?', [solicitud]);
         if (existing.length)
             fail(409, 'Otro técnico ya atendió esta solicitud. Actualiza la lista.');
-        const [p] = await c.query('SELECT id_prioridad FROM prioridad WHERE nivel_prioridad=?', [prioridad]);
+        const [ocup]: any = await c.query('SELECT * FROM beta_solicitud_ocupacion WHERE id_solicitud=? FOR UPDATE', [solicitud]);
+        const regla = ocup[0];
+        const nivelSolicitud = regla ? Number(regla.nivel_prioridad) : null;
+        const yo = res.locals.user.id_empleado;
+        if (regla?.tecnico_asignado && regla.tecnico_asignado !== yo)
+            fail(409, 'El jefe de mantenimiento asignó esta solicitud a otro técnico.');
+        if (nivelSolicitud !== null && nivelSolicitud <= 1 && regla.tecnico_asignado !== yo)
+            fail(403, 'Las solicitudes URGENTES y de prioridad ALTA las asigna el jefe de mantenimiento.');
+        // Urgente/Alta: se respeta la prioridad definida por el estado de la habitación.
+        // Media/Baja: el técnico puede ajustar entre Media y Baja.
+        let prioridadFinal = prioridad;
+        if (nivelSolicitud !== null && nivelSolicitud <= 1) prioridadFinal = nivelSolicitud;
+        else if (![2, 3].includes(prioridad)) prioridadFinal = nivelSolicitud ?? 2;
+        const [p] = await c.query('SELECT id_prioridad FROM prioridad WHERE nivel_prioridad=?', [prioridadFinal]);
         if (!p.length)
             fail(400, 'Prioridad inválida.');
         const [t] = await c.query('SELECT id_tipo_incidente FROM tipo_incidente WHERE id_tipo_incidente=?', [tipo]);
         if (!t.length)
             fail(400, 'Tipo inválido.');
-        const [supervisor] = await c.query('SELECT s.id_supervisor FROM supervisor s JOIN empleado e USING(id_empleado) WHERE e.id_estado_empleado=1 ORDER BY s.id_supervisor LIMIT 1');
+        const [supervisor] = regla?.asignado_por
+            ? await c.query('SELECT id_supervisor FROM supervisor WHERE id_empleado=?', [regla.asignado_por])
+            : await c.query('SELECT s.id_supervisor FROM supervisor s JOIN empleado e USING(id_empleado) WHERE e.id_estado_empleado=1 ORDER BY s.id_supervisor LIMIT 1');
         if (!supervisor.length)
             fail(409, 'No hay supervisor activo.');
         const [a] = await c.query('INSERT INTO asignacion(id_empleado,fecha_asignacion,hora_asignacion,observaciones) VALUES(?,CURDATE(),CURTIME(),?)', [res.locals.user.id_empleado, observacion]);
@@ -281,5 +355,33 @@ betaRouter.post('/supervisor/asignar-habitacion', roles('SUPERVISOR'), wrap(asyn
         if (!e.length) fail(400, 'Selecciona una mucama activa.');
         await c.query('INSERT INTO beta_habitacion_mucama(id_habitacion,id_empleado) VALUES(?,?) ON DUPLICATE KEY UPDATE id_empleado=?', [room, employee, employee]);
     });
+    res.json({ ok: true });
+}));
+
+// Jefe de mantenimiento: asigna una solicitud al técnico (normalmente al de turno)
+betaRouter.post('/supervisor/asignar-tecnico', roles('SUPERVISOR'), wrap(async (req, res) => {
+    const solicitud = id(req.body.id_solicitud), tecnico = id(req.body.id_empleado);
+    await transaction(async c => {
+        const [s] = await c.query('SELECT id_solicitud FROM solicitud WHERE id_solicitud=? FOR UPDATE', [solicitud]);
+        if (!s.length) fail(404, 'Solicitud no encontrada.');
+        const [inc] = await c.query('SELECT id_incidente FROM incidente WHERE id_solicitud=?', [solicitud]);
+        if (inc.length) fail(409, 'Esta solicitud ya está siendo atendida por un técnico.');
+        const [t] = await c.query("SELECT id_empleado FROM empleado WHERE id_empleado=? AND rol='TECNICO' AND id_estado_empleado=1", [tecnico]);
+        if (!t.length) fail(400, 'Selecciona un técnico activo.');
+        await c.query(`INSERT INTO beta_solicitud_ocupacion(id_solicitud,nivel_prioridad,tecnico_asignado,asignado_por,fecha_asignado) VALUES(?,2,?,?,NOW())
+            ON DUPLICATE KEY UPDATE tecnico_asignado=VALUES(tecnico_asignado), asignado_por=VALUES(asignado_por), fecha_asignado=NOW()`,
+            [solicitud, tecnico, res.locals.user.id_empleado]);
+    });
+    res.json({ ok: true });
+}));
+
+// Jefe de mantenimiento: define el turno (mañana / tarde / noche) de cada técnico
+betaRouter.post('/supervisor/turno', roles('SUPERVISOR'), wrap(async (req, res) => {
+    const tecnico = id(req.body.id_empleado);
+    const turno = String(req.body.turno || '').toUpperCase();
+    if (!TURNOS.includes(turno)) fail(400, 'Turno inválido.');
+    const [t]: any = await pool.query("SELECT id_empleado FROM empleado WHERE id_empleado=? AND rol='TECNICO'", [tecnico]);
+    if (!t.length) fail(400, 'Selecciona un técnico.');
+    await pool.query('INSERT INTO beta_empleado_turno(id_empleado,turno) VALUES(?,?) ON DUPLICATE KEY UPDATE turno=VALUES(turno)', [tecnico, turno]);
     res.json({ ok: true });
 }));

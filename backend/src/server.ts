@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import pool from './config/db.js';
-import { betaRouter } from './beta.js';
+import { betaRouter, ensureSchema } from './beta.js';
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '6mb' }));
@@ -20,4 +20,9 @@ app.use((error: any, _req: express.Request, res: express.Response, _next: expres
     console.error(error.code || error.message);
     res.status(error.status || 500).json({ mensaje: error.status ? error.message : 'Error del servidor. Comprueba la conexión y los datos de MySQL.' });
 });
-app.listen(Number(process.env.PORT) || 3000, '0.0.0.0', () => console.log('Hotel Cortéz API: puerto ' + (process.env.PORT || 3000)));
+app.listen(Number(process.env.PORT) || 3000, '0.0.0.0', () => {
+    console.log('Hotel Cortéz API: puerto ' + (process.env.PORT || 3000));
+    ensureSchema()
+        .then(() => console.log('Migración de turnos y prioridades verificada.'))
+        .catch(e => console.error('No se pudo aplicar la migración automática:', e.code || e.message));
+});
