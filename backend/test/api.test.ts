@@ -80,7 +80,13 @@ test('flujo completo: reportar, asignar, pendiente, resolver, modificar', async 
     assert.equal((await api('/solicitudes', mucama, { numero_habitacion: '501', problema: 'x', ocupacion: 'LIBRE' })).status, 403, 'hab. de otra mucama');
 
     // Ocupada → Urgente, con foto (se guarda en disco, no en la lista)
-    const nueva = await api('/solicitudes', mucama, { numero_habitacion: '101', problema: 'Fuga de agua en el baño', ocupacion: 'OCUPADA', prioridad: 3, foto: PNG });
+    const nueva = await api('/solicitudes', mucama, {
+        numero_habitacion: '101',
+        problema: 'Fuga de agua en el baño',
+        ocupacion: 'OCUPADA',
+        prioridad: 3,
+        foto: PNG
+    });
     assert.equal(nueva.status, 201, JSON.stringify(nueva.data));
     assert.equal(nueva.data.nivel_prioridad, 0);
     const id = nueva.data.id_solicitud;
@@ -100,7 +106,12 @@ test('flujo completo: reportar, asignar, pendiente, resolver, modificar', async 
     assert.equal((await api('/solicitudes/' + id, mucama, { problema: 'otro' }, 'PATCH')).status, 409, 'ya asignada');
 
     // Otro técnico no puede reportar
-    const rep = { resultado: 'PENDIENTE', observacion: 'Se cambió el empaque', motivo_pendiente: 'Falta la válvula', materiales: [{ nombre: ' empaque  nuevo ', cantidad: 1.5 }] };
+    const rep = {
+        resultado: 'PENDIENTE',
+        observacion: 'Se cambió el empaque',
+        motivo_pendiente: 'Falta la válvula',
+        materiales: [{ nombre: ' empaque  nuevo ', cantidad: 1.5 }]
+    };
     assert.equal((await api(`/solicitudes/${id}/reportes`, tec2, rep)).status, 403);
     assert.equal((await api(`/solicitudes/${id}/iniciar`, tec1, {})).status, 200);
     // Pendiente sin motivo → error
@@ -127,7 +138,16 @@ test('flujo completo: reportar, asignar, pendiente, resolver, modificar', async 
     assert.equal((await api(`/modificaciones/${mod.id_modificacion}/hecha`, sup, {})).status, 404);
 
     // Se resuelve
-    assert.equal((await api(`/solicitudes/${id}/reportes`, tec1, { resultado: 'HECHO', observacion: 'Válvula instalada', materiales: [{ id_material: 8, cantidad: 1 }] })).status, 201);
+    assert.equal(
+        (
+            await api(`/solicitudes/${id}/reportes`, tec1, {
+                resultado: 'HECHO',
+                observacion: 'Válvula instalada',
+                materiales: [{ id_material: 8, cantidad: 1 }]
+            })
+        ).status,
+        201
+    );
     det = (await api('/solicitudes/' + id, sup)).data;
     assert.equal(det.estado, 'RESUELTA');
     assert.ok(det.finalizada_en);
@@ -154,7 +174,15 @@ test('Media/Baja: un solo técnico puede tomarla (concurrencia)', async () => {
 });
 
 test('registro de acceso requiere aprobación del supervisor', async () => {
-    const reg = await api('/auth/registro', null, { nombre: 'Lucía', apellido: 'Mamani', telefono: '70012345', ci: '9988776', rol: 'MUCAMA', turno: 'MANANA', password: 'secreta1' });
+    const reg = await api('/auth/registro', null, {
+        nombre: 'Lucía',
+        apellido: 'Mamani',
+        telefono: '70012345',
+        ci: '9988776',
+        rol: 'MUCAMA',
+        turno: 'MANANA',
+        password: 'secreta1'
+    });
     assert.equal(reg.status, 201, JSON.stringify(reg.data));
     assert.equal((await api('/auth/login', null, { codigo: reg.data.codigo, password: 'secreta1' })).status, 403);
     const sup = await login('E-0005', 'SUPERVISOR');

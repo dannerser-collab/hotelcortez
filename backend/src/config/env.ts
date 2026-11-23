@@ -29,7 +29,10 @@ export const env = {
         database: process.env.DB_NAME || 'hotel_cortez'
     },
     // Orígenes permitidos para CORS (separados por coma). Vacío = solo mismo origen.
-    origenes: (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean),
+    origenes: (process.env.CORS_ORIGIN || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean),
     sesionHoras: numero(process.env.SESION_HORAS, 12),
     carpetaFotos: path.resolve(raiz, process.env.UPLOADS_DIR || 'uploads'),
     carpetaFrontend: path.resolve(raiz, '..', 'frontend', 'dist'),

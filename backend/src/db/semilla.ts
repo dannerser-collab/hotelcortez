@@ -23,10 +23,21 @@ const EMPLEADOS = [
 
 const HABITACIONES = [
     // numero, piso, tipo
-    ['101', 1, 'Doble'], ['102', 1, 'Doble'], ['105', 1, 'Matrimonial'], ['108', 1, 'Suite'],
-    ['201', 2, 'Doble'], ['204', 2, 'Suite'], ['301', 3, 'Matrimonial'], ['354', 3, 'Suite'],
-    ['431', 4, 'Doble'], ['434', 4, 'Suite'], ['437', 4, 'Suite'], ['439', 4, 'Matrimonial'],
-    ['501', 5, 'Doble'], ['508', 5, 'Simple'], ['601', 6, 'Suite']
+    ['101', 1, 'Doble'],
+    ['102', 1, 'Doble'],
+    ['105', 1, 'Matrimonial'],
+    ['108', 1, 'Suite'],
+    ['201', 2, 'Doble'],
+    ['204', 2, 'Suite'],
+    ['301', 3, 'Matrimonial'],
+    ['354', 3, 'Suite'],
+    ['431', 4, 'Doble'],
+    ['434', 4, 'Suite'],
+    ['437', 4, 'Suite'],
+    ['439', 4, 'Matrimonial'],
+    ['501', 5, 'Doble'],
+    ['508', 5, 'Simple'],
+    ['601', 6, 'Suite']
 ] as const;
 
 async function vacia(c: PoolConnection, tabla: string) {
@@ -53,22 +64,29 @@ export async function sembrar({ demo = true }: { demo?: boolean } = {}) {
                 ('Cable eléctrico 2.5 mm','metro',100), ('Válvula de paso 1/2','unidad',5)`);
 
         if (demo) {
-            if (await vacia(c, 'bloque'))
-                await c.query('INSERT INTO bloque (bloque) VALUES (100),(200),(300),(400),(500),(600)');
+            if (await vacia(c, 'bloque')) await c.query('INSERT INTO bloque (bloque) VALUES (100),(200),(300),(400),(500),(600)');
             for (const e of EMPLEADOS)
-                await c.query(`INSERT INTO empleado (id_empleado, id_area, id_estado_empleado, nombre, apellido, telefono, rol, id_turno, ci)
-                    VALUES (?,?,1,?,?,?,?,?,NULL) ON DUPLICATE KEY UPDATE id_empleado = id_empleado`, [e[0], e[1], e[2], e[3], e[4], e[5], e[6]]);
+                await c.query(
+                    `INSERT INTO empleado (id_empleado, id_area, id_estado_empleado, nombre, apellido, telefono, rol, id_turno, ci)
+                    VALUES (?,?,1,?,?,?,?,?,NULL) ON DUPLICATE KEY UPDATE id_empleado = id_empleado`,
+                    [e[0], e[1], e[2], e[3], e[4], e[5], e[6]]
+                );
             if (await vacia(c, 'habitacion'))
                 for (const [numero, piso, tipo] of HABITACIONES) {
                     await c.query('INSERT IGNORE INTO tipo_habitacion (nombre) VALUES (?)', [tipo]);
-                    await c.query(`INSERT INTO habitacion (id_bloque, numero, piso, id_tipo_hab, estado, id_mucama)
+                    await c.query(
+                        `INSERT INTO habitacion (id_bloque, numero, piso, id_tipo_hab, estado, id_mucama)
                         SELECT b.id_bloque, ?, ?, t.id_tipo_hab, TRUE, IF(? <= 3, 1, 6)
                         FROM bloque b, tipo_habitacion t WHERE b.bloque = ? AND t.nombre = ?`,
-                        [numero, piso, piso, Number(numero[0]) * 100, tipo]);
+                        [numero, piso, piso, Number(numero[0]) * 100, tipo]
+                    );
                 }
             // Completa CI de los empleados demo que no lo tengan
             for (const e of EMPLEADOS)
-                await c.query('UPDATE empleado SET ci = ? WHERE id_empleado = ? AND ci IS NULL AND NOT EXISTS (SELECT 1 FROM (SELECT ci FROM empleado) x WHERE x.ci = ?)', [e[7], e[0], e[7]]);
+                await c.query(
+                    'UPDATE empleado SET ci = ? WHERE id_empleado = ? AND ci IS NULL AND NOT EXISTS (SELECT 1 FROM (SELECT ci FROM empleado) x WHERE x.ci = ?)',
+                    [e[7], e[0], e[7]]
+                );
             // Contraseña de prueba solo para quien no tiene ninguna
             const [sin]: any = await c.query('SELECT id_empleado, rol FROM empleado WHERE password_hash IS NULL AND id_estado_empleado = 1');
             for (const s of sin)

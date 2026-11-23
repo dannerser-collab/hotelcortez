@@ -20,23 +20,29 @@ export const m0002: Migracion = {
         const tieneTurnoBeta = await tablaExiste(c, 'beta_empleado_turno');
 
         // ---------- 1. Catálogos nuevos ----------
-        await q(`CREATE TABLE turno (
+        await q(
+            `CREATE TABLE turno (
             id_turno TINYINT AUTO_INCREMENT PRIMARY KEY,
             codigo VARCHAR(10) NOT NULL UNIQUE,
             nombre VARCHAR(30) NOT NULL,
             hora_inicio TIME NOT NULL,
-            hora_fin TIME NOT NULL)` + MOTOR);
+            hora_fin TIME NOT NULL)` + MOTOR
+        );
         await q(`INSERT INTO turno (codigo, nombre, hora_inicio, hora_fin) VALUES
             ('MANANA','Mañana','06:00','14:00'), ('TARDE','Tarde','14:00','22:00'), ('NOCHE','Noche','22:00','06:00')`);
 
-        await q(`CREATE TABLE tipo_habitacion (
+        await q(
+            `CREATE TABLE tipo_habitacion (
             id_tipo_hab INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(50) NOT NULL UNIQUE)` + MOTOR);
+            nombre VARCHAR(50) NOT NULL UNIQUE)` + MOTOR
+        );
 
-        await q(`CREATE TABLE dificultad (
+        await q(
+            `CREATE TABLE dificultad (
             id_dificultad TINYINT AUTO_INCREMENT PRIMARY KEY,
             nombre VARCHAR(20) NOT NULL UNIQUE,
-            orden TINYINT NOT NULL)` + MOTOR);
+            orden TINYINT NOT NULL)` + MOTOR
+        );
         await q(`INSERT INTO dificultad (nombre, orden) VALUES ('Fácil',1), ('Medio',2), ('Difícil',3)`);
 
         await q(`INSERT INTO estado_empleado (id_estado_empleado, nombre_estado)
@@ -128,7 +134,8 @@ export const m0002: Migracion = {
         // ---------- 6. Trabajo técnico: asignación, reporte, materiales ----------
         await q('RENAME TABLE asignacion TO v2_asignacion, asignacion_material TO v2_asignacion_material, incidente TO v2_incidente');
 
-        await q(`CREATE TABLE asignacion (
+        await q(
+            `CREATE TABLE asignacion (
             id_asignacion INT AUTO_INCREMENT PRIMARY KEY,
             id_solicitud INT NOT NULL UNIQUE,
             id_tecnico INT NOT NULL,
@@ -144,9 +151,11 @@ export const m0002: Migracion = {
             CONSTRAINT fk_asig_por FOREIGN KEY (asignado_por) REFERENCES empleado(id_empleado),
             CONSTRAINT fk_asig_dificultad FOREIGN KEY (id_dificultad) REFERENCES dificultad(id_dificultad),
             CONSTRAINT fk_asig_especialidad FOREIGN KEY (id_especialidad) REFERENCES especialidad(id_especialidad),
-            INDEX idx_asig_tecnico (id_tecnico, finalizada_en))` + MOTOR);
+            INDEX idx_asig_tecnico (id_tecnico, finalizada_en))` + MOTOR
+        );
 
-        await q(`CREATE TABLE reporte (
+        await q(
+            `CREATE TABLE reporte (
             id_reporte INT AUTO_INCREMENT PRIMARY KEY,
             id_asignacion INT NOT NULL,
             id_autor INT NOT NULL,
@@ -157,18 +166,22 @@ export const m0002: Migracion = {
             actualizado_en DATETIME NULL,
             CONSTRAINT fk_rep_asignacion FOREIGN KEY (id_asignacion) REFERENCES asignacion(id_asignacion) ON DELETE CASCADE,
             CONSTRAINT fk_rep_autor FOREIGN KEY (id_autor) REFERENCES empleado(id_empleado),
-            INDEX idx_rep_asignacion (id_asignacion, creado_en))` + MOTOR);
+            INDEX idx_rep_asignacion (id_asignacion, creado_en))` + MOTOR
+        );
 
-        await q(`CREATE TABLE reporte_material (
+        await q(
+            `CREATE TABLE reporte_material (
             id_reporte INT NOT NULL,
             id_material INT NOT NULL,
             cantidad DECIMAL(10,2) NOT NULL,
             PRIMARY KEY (id_reporte, id_material),
             CONSTRAINT fk_repmat_reporte FOREIGN KEY (id_reporte) REFERENCES reporte(id_reporte) ON DELETE CASCADE,
             CONSTRAINT fk_repmat_material FOREIGN KEY (id_material) REFERENCES material(id_material),
-            CONSTRAINT chk_repmat_cantidad CHECK (cantidad > 0))` + MOTOR);
+            CONSTRAINT chk_repmat_cantidad CHECK (cantidad > 0))` + MOTOR
+        );
 
-        await q(`CREATE TABLE solicitud_modificacion (
+        await q(
+            `CREATE TABLE solicitud_modificacion (
             id_modificacion INT AUTO_INCREMENT PRIMARY KEY,
             id_reporte INT NOT NULL,
             id_solicitante INT NOT NULL,
@@ -180,9 +193,11 @@ export const m0002: Migracion = {
             CONSTRAINT fk_mod_reporte FOREIGN KEY (id_reporte) REFERENCES reporte(id_reporte) ON DELETE CASCADE,
             CONSTRAINT fk_mod_solicitante FOREIGN KEY (id_solicitante) REFERENCES empleado(id_empleado),
             CONSTRAINT fk_mod_atendida FOREIGN KEY (atendida_por) REFERENCES empleado(id_empleado),
-            INDEX idx_mod_estado (estado, creada_en))` + MOTOR);
+            INDEX idx_mod_estado (estado, creada_en))` + MOTOR
+        );
 
-        await q(`CREATE TABLE solicitud_evento (
+        await q(
+            `CREATE TABLE solicitud_evento (
             id_evento BIGINT AUTO_INCREMENT PRIMARY KEY,
             id_solicitud INT NOT NULL,
             tipo VARCHAR(20) NOT NULL,
@@ -191,17 +206,21 @@ export const m0002: Migracion = {
             creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT fk_evento_solicitud FOREIGN KEY (id_solicitud) REFERENCES solicitud(id_solicitud) ON DELETE CASCADE,
             CONSTRAINT fk_evento_empleado FOREIGN KEY (id_empleado) REFERENCES empleado(id_empleado),
-            INDEX idx_evento_solicitud (id_solicitud, creado_en))` + MOTOR);
+            INDEX idx_evento_solicitud (id_solicitud, creado_en))` + MOTOR
+        );
 
-        await q(`CREATE TABLE sesion (
+        await q(
+            `CREATE TABLE sesion (
             token_hash CHAR(64) PRIMARY KEY,
             id_empleado INT NOT NULL,
             creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             expira_en DATETIME NOT NULL,
             CONSTRAINT fk_sesion_empleado FOREIGN KEY (id_empleado) REFERENCES empleado(id_empleado) ON DELETE CASCADE,
-            INDEX idx_sesion_expira (expira_en))` + MOTOR);
+            INDEX idx_sesion_expira (expira_en))` + MOTOR
+        );
 
-        await q(`CREATE TABLE push_suscripcion (
+        await q(
+            `CREATE TABLE push_suscripcion (
             id_suscripcion INT AUTO_INCREMENT PRIMARY KEY,
             id_empleado INT NOT NULL,
             endpoint VARCHAR(500) NOT NULL,
@@ -209,7 +228,8 @@ export const m0002: Migracion = {
             auth VARCHAR(100) NOT NULL,
             creada_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uq_push_endpoint (endpoint),
-            CONSTRAINT fk_push_empleado FOREIGN KEY (id_empleado) REFERENCES empleado(id_empleado) ON DELETE CASCADE)` + MOTOR);
+            CONSTRAINT fk_push_empleado FOREIGN KEY (id_empleado) REFERENCES empleado(id_empleado) ON DELETE CASCADE)` + MOTOR
+        );
 
         // ---------- 7. Migrar datos V2 de trabajo técnico ----------
         const asignadoPor = tieneOcupacion ? 'o.asignado_por' : 'NULL';
@@ -275,9 +295,20 @@ export const m0002: Migracion = {
 
         // ---------- 8. Retirar estructuras reemplazadas ----------
         await q('SET FOREIGN_KEY_CHECKS = 0');
-        for (const t of ['v2_incidente', 'v2_asignacion_material', 'v2_asignacion', 'solicitud_habitacion', 'beta_solicitud_foto',
-            'beta_habitacion_mucama', 'beta_solicitud_ocupacion', 'beta_empleado_turno', 'prioridad', 'estado_incidente',
-            'tipo_incidente', 'supervisor'])
+        for (const t of [
+            'v2_incidente',
+            'v2_asignacion_material',
+            'v2_asignacion',
+            'solicitud_habitacion',
+            'beta_solicitud_foto',
+            'beta_habitacion_mucama',
+            'beta_solicitud_ocupacion',
+            'beta_empleado_turno',
+            'prioridad',
+            'estado_incidente',
+            'tipo_incidente',
+            'supervisor'
+        ])
             await q('DROP TABLE IF EXISTS `' + t + '`');
         await q('SET FOREIGN_KEY_CHECKS = 1');
 
@@ -286,9 +317,12 @@ export const m0002: Migracion = {
             JOIN (SELECT MIN(id_material) id_keep, nombre_mat FROM material GROUP BY nombre_mat) k
             ON k.nombre_mat = m.nombre_mat AND k.id_keep <> m.id_material`);
         for (const d of dups) {
-            await q(`INSERT INTO reporte_material (id_reporte, id_material, cantidad)
+            await q(
+                `INSERT INTO reporte_material (id_reporte, id_material, cantidad)
                 SELECT id_reporte, ?, cantidad FROM reporte_material WHERE id_material = ?
-                ON DUPLICATE KEY UPDATE cantidad = reporte_material.cantidad + VALUES(cantidad)`, [d.id_keep, d.id_material]);
+                ON DUPLICATE KEY UPDATE cantidad = reporte_material.cantidad + VALUES(cantidad)`,
+                [d.id_keep, d.id_material]
+            );
             await q('DELETE FROM reporte_material WHERE id_material = ?', [d.id_material]);
             await q('DELETE FROM material WHERE id_material = ?', [d.id_material]);
         }

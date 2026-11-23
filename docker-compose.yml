@@ -1,0 +1,39 @@
+# Arranque completo con Docker:  docker compose up -d --build
+# Primera vez, datos de prueba:  docker compose exec app node dist/db/cli.js semilla
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-cambia_esta_clave}
+      MYSQL_DATABASE: hotel_cortez
+      TZ: America/La_Paz
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci --default-time-zone=-04:00
+    volumes:
+      - mysql_datos:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-p${DB_PASSWORD:-cambia_esta_clave}']
+      interval: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-cambia_esta_clave}
+      DB_NAME: hotel_cortez
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+    ports:
+      - '3000:3000'
+    volumes:
+      - fotos:/app/backend/uploads
+
+volumes:
+  mysql_datos:
+  fotos:

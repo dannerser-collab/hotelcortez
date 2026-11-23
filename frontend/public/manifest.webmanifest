@@ -1,0 +1,18 @@
+{
+  "name": "Hotel Cortéz · Gestión de Incidentes",
+  "short_name": "Cortéz CMMS",
+  "description": "Reporte y seguimiento de mantenimiento de habitaciones del Hotel Cortéz.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F4EE",
+  "theme_color": "#004133",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icono.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

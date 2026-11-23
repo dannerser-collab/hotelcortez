@@ -28,5 +28,10 @@ export async function enviarPush(idEmpleados: number[], titulo: string, cuerpo: 
 export async function pushSupervisores(titulo: string, cuerpo: string, url = '/') {
     if (!pushActivo) return;
     const sup = await filas<{ id_empleado: number }>("SELECT id_empleado FROM empleado WHERE rol = 'SUPERVISOR' AND id_estado_empleado = 1");
-    await enviarPush(sup.map(s => s.id_empleado), titulo, cuerpo, url);
+    await enviarPush(
+        sup.map(s => s.id_empleado),
+        titulo,
+        cuerpo,
+        url
+    );
 }

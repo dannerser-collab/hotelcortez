@@ -2,7 +2,10 @@ import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import { z, ZodError } from 'zod';
 
 export class HttpError extends Error {
-    constructor(public status: number, message: string) {
+    constructor(
+        public status: number,
+        message: string
+    ) {
         super(message);
     }
 }
@@ -34,8 +37,19 @@ export function validar<T extends z.ZodType>(esquema: T, datos: unknown): z.infe
 // Piezas de validación reutilizables
 export const idValido = z.coerce.number({ message: 'Identificador inválido.' }).int().positive('Identificador inválido.');
 export const texto = (max: number, nombre: string) =>
-    z.string({ message: `Completa ${nombre}.` }).trim().min(1, `Completa ${nombre}.`).max(max, `${nombre} admite máximo ${max} caracteres.`);
-export const textoOpcional = (max: number) => z.string().trim().max(max).optional().nullable().transform(v => v || null);
+    z
+        .string({ message: `Completa ${nombre}.` })
+        .trim()
+        .min(1, `Completa ${nombre}.`)
+        .max(max, `${nombre} admite máximo ${max} caracteres.`);
+export const textoOpcional = (max: number) =>
+    z
+        .string()
+        .trim()
+        .max(max)
+        .optional()
+        .nullable()
+        .transform(v => v || null);
 export const fotoBase64 = z
     .string()
     .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/, 'La foto debe ser JPG, PNG o WebP.')

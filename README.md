@@ -1,55 +1,68 @@
-# 🏨 Sistema de Gestión de Mantenimiento - Hotel Cortéz (CMMS)
+# 🏨 Hotel Cortéz · Gestión de Incidentes de Mantenimiento (CMMS)
 
-Sistema integral de gestión, trazabilidad y analítica de mantenimiento para el **Hotel Cortéz**, diseñado para estandarizar las solicitudes operativas (housekeeping), eliminar la dependencia de mensajes de WhatsApp y tablas dispersas en Excel, y proveer indicadores de rendimiento en tiempo real accesibles tanto desde teléfonos móviles (PWA) como desde PC (Web Admin).
+Sistema para que las mucamas reporten fallas desde el celular, el supervisor las asigne al técnico de turno y el técnico registre el trabajo hasta resolverlo. Reemplaza los mensajes de WhatsApp y las planillas de Excel, deja historial de cada habitación y calcula indicadores (tiempo de respuesta, MTTR, carga por técnico, materiales).
 
----
+## Roles
 
-## 📁 Estructura del Proyecto
+| Rol | Qué hace |
+| --- | --- |
+| **Mucama** | Reporta una falla (habitación, detalle, estado libre/ocupada/reservada, foto). Puede modificarla o anularla mientras no esté asignada. |
+| **Técnico** | Ve sus asignaciones (nuevas y pendientes) y las disponibles de prioridad Media/Baja. Inicia el trabajo, reporta Hecho o Pendiente con motivo, y pide al supervisor cambios en sus reportes. |
+| **Supervisor** | Asigna con dificultad, especialidad y técnico según turno; resuelve pendientes; edita reportes; rack de habitaciones; personal, turnos y materiales; indicadores. |
 
-```text
-hotelcortez/
-├── database/
-│   ├── 01_schema.sql        # Script DDL (Tablas, Claves Foráneas, Índices) para MySQL 8.0
-│   └── 02_seed.sql          # Catálogo inicial de datos (Pisos, Habitaciones, Especialidades, Usuarios)
-├── backend/                 # API REST (Node.js + Express + TypeScript + driver mysql2) [Fase 2]
-├── frontend/                # Aplicación Web & PWA Móvil (React + Vite + Tailwind CSS) [Fase 3]
-├── .gitignore               # Archivos y credenciales excluidas del repositorio
-└── README.md                # Documentación del proyecto
+Prioridad: **Ocupada → Urgente**, **Reservada → Alta**, **Libre → la mucama elige** (Alta, Media o Baja). Urgente y Alta solo las asigna el supervisor.
+
+## Tecnología
+
+- **Base de datos:** MySQL 8 (utf8mb4), con migraciones versionadas.
+- **Backend:** Node.js + Express + TypeScript, `mysql2`, `zod`, `bcryptjs`, `helmet`; tiempo real por Server-Sent Events.
+- **Frontend:** React + Vite + Tailwind + TanStack Query; PWA instalable.
+- **Calidad:** ESLint, Prettier, pruebas con `node:test`, GitHub Actions.
+
+## Puesta en marcha (Windows)
+
+Requisitos: Node.js 20 o superior y MySQL 8 iniciado.
+
+1. Copia `backend/.env.example` a `backend/.env` y completa `DB_PASSWORD`.
+2. Ejecuta **`iniciar_proyecto.bat`**. Crea o actualiza la base (`npm run semilla`) y abre la API y la interfaz.
+3. Abre `http://localhost:5173`. Usuarios de prueba: [docs/ACCESO.md](docs/ACCESO.md).
+
+Desde el celular (misma red Wi-Fi): `http://IP_DE_LA_PC:5173`. La IP se ve con `ipconfig`.
+
+Para el uso diario, **`iniciar_produccion.bat`** compila todo, hace un respaldo, aplica migraciones y sirve el sistema en un solo puerto (`http://localhost:3000`).
+
+Con Docker: `docker compose up -d --build`.
+
+### Comandos útiles (en `backend/`)
+
+| Comando | Para qué |
+| --- | --- |
+| `npm run migrar` | Aplica cambios pendientes a la base, sin borrar datos |
+| `npm run semilla` | Migra y carga catálogos + datos de prueba (solo lo que falta) |
+| `npm run clave -- 5 NuevaClave` | Cambia la contraseña de un empleado |
+| `npm run respaldo` | Guarda la base en `backups/` (conserva los últimos 30) |
+| `npm test` | Pruebas sobre una base temporal (no toca la real) |
+
+`GET /api/salud` indica si MySQL responde y si faltan migraciones.
+
+## Notificaciones con la app cerrada
+
+Requieren HTTPS (o `localhost`) y claves VAPID:
+
+```powershell
+cd F:\hotelcortez\backend; npx web-push generate-vapid-keys
 ```
 
----
+Copia las claves a `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` en `backend/.env`. Cada persona las activa en **Mi perfil → Activar notificaciones**. Por `http://IP:puerto` los avisos llegan solo con la app abierta (tiempo real).
 
-## 🗄️ Carga de Base de Datos en MySQL Workbench
+## Estructura
 
-Para levantar la base de datos en tu equipo local:
+```text
+backend/    API modular (ver docs/ARQUITECTURA.md)
+frontend/   Interfaz web/PWA
+database/   esquema_v3.sql: referencia del modelo (no se ejecuta)
+docs/       ACCESO, ARQUITECTURA, diseño y análisis del diagrama
+backups/    Respaldos locales (no se suben a Git)
+```
 
-1. Abre **MySQL Workbench** y conéctate a tu instancia local (`Local instance MySQL80`).
-2. Ve al menú superior: **File** $\rightarrow$ **Open SQL Script...** (o presiona `Ctrl + O`).
-3. Selecciona el archivo `database/01_schema.sql` y presiona el botón del **Rayo (Execute)**.
-4. Repite el proceso con el archivo `database/02_seed.sql` para poblar los datos de prueba.
-5. Haz clic derecho en el panel izquierdo sobre **SCHEMAS** y selecciona **Refresh All**. Verás la base de datos `hotel_cortez` lista con todas sus tablas e índices.
-
-### 👤 Usuarios y Credenciales de Prueba
-
-| Nombre | Rol del Sistema | Correo de Acceso | Contraseña de Prueba |
-| :--- | :--- | :--- | :--- |
-| Carlos Mendoza | `ADMIN` (Gerencia) | `gerencia@hotelcortez.com` | `Password123*` |
-| Ing. Roberto Paz | `SUPERVISOR` (Jefe Mantenimiento) | `mantenimiento@hotelcortez.com` | `Password123*` |
-| María Condori | `OPERATIVO` (Gobernanza) | `gobernanza@hotelcortez.com` | `Password123*` |
-| Juan Quispe | `TECNICO` (Climatización / HVAC) | `juan.hvac@hotelcortez.com` | `Password123*` |
-| Luis Flores | `TECNICO` (Plomería) | `luis.plomero@hotelcortez.com` | `Password123*` |
-| David Vargas | `TECNICO` (Electricidad) | `david.electrico@hotelcortez.com` | `Password123*` |
-
----
-
-## 🛠️ Tecnologías Empleadas
-
-* **Base de Datos:** MySQL 8.0 (Motor InnoDB, codificación UTF-8 mb4, SQL Puro).
-* **Backend:** Node.js, Express, TypeScript, `mysql2`, JWT, Bcrypt.
-* **Frontend:** React, Vite, Tailwind CSS (PWA instalable).
-* **Control de Versiones:** Git y GitHub.
-
-
-## Versión beta con acceso por rol
-
-Consulta [la guía de la beta](docs/BETA.md) para preparar la migración aditiva, iniciar los servidores, acceder con ID y contraseña y probar desde celular y PC. La beta usa los roles y las tablas del modelo V2; la lista antigua de correos y contraseñas de este README corresponde al prototipo anterior.
+Para hacer cambios sin romper lo existente, sigue [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md).

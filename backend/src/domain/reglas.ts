@@ -40,7 +40,8 @@ function minutos(hhmm: string) {
 /** ¿La hora dada cae dentro del turno? Soporta turnos que cruzan medianoche. */
 export function enTurno(turno: Pick<Turno, 'hora_inicio' | 'hora_fin'>, fecha = new Date()) {
     const ahora = fecha.getHours() * 60 + fecha.getMinutes();
-    const ini = minutos(turno.hora_inicio), fin = minutos(turno.hora_fin);
+    const ini = minutos(turno.hora_inicio),
+        fin = minutos(turno.hora_fin);
     return ini < fin ? ahora >= ini && ahora < fin : ahora >= ini || ahora < fin;
 }
 

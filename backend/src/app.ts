@@ -47,9 +47,12 @@ export function crearApp() {
         if (status >= 500) console.error(new Date().toISOString(), error.code || '', error.message);
         if (error.type === 'entity.too.large') return res.status(413).json({ mensaje: 'La información enviada es demasiado grande.' });
         res.status(status).json({
-            mensaje: status < 500 ? error.message : error.code?.startsWith?.('ER_') || error.code === 'ECONNREFUSED'
-                ? 'Error de base de datos. Verifica que MySQL esté activo y las migraciones aplicadas.'
-                : 'Error del servidor.'
+            mensaje:
+                status < 500
+                    ? error.message
+                    : error.code?.startsWith?.('ER_') || error.code === 'ECONNREFUSED'
+                      ? 'Error de base de datos. Verifica que MySQL esté activo y las migraciones aplicadas.'
+                      : 'Error del servidor.'
         });
     });
     return app;

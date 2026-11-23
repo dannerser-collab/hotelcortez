@@ -44,8 +44,7 @@ export type FiltrosSolicitud = {
 /** Qué puede ver cada rol. */
 function alcance(u: Usuario): { where: string; params: unknown[] } {
     if (u.rol === 'MUCAMA') return { where: 's.id_empleado = ?', params: [u.id_empleado] };
-    if (u.rol === 'TECNICO')
-        return { where: "(a.id_tecnico = ? OR (s.estado = 'SIN_ASIGNAR' AND s.nivel_prioridad >= 2))", params: [u.id_empleado] };
+    if (u.rol === 'TECNICO') return { where: "(a.id_tecnico = ? OR (s.estado = 'SIN_ASIGNAR' AND s.nivel_prioridad >= 2))", params: [u.id_empleado] };
     return { where: '1 = 1', params: [] };
 }
 
@@ -62,7 +61,9 @@ export async function listarSolicitudes(u: Usuario, f: FiltrosSolicitud = {}) {
         p.push(f.estado);
     } else if (!f.historial) {
         // Por defecto: abiertas + cerradas de las últimas 48 h (lista liviana)
-        cond.push(`(s.estado IN (${ESTADOS_ABIERTOS.map(() => '?').join(',')}) OR s.actualizada_en >= NOW() - INTERVAL 48 HOUR OR s.creada_en >= NOW() - INTERVAL 48 HOUR)`);
+        cond.push(
+            `(s.estado IN (${ESTADOS_ABIERTOS.map(() => '?').join(',')}) OR s.actualizada_en >= NOW() - INTERVAL 48 HOUR OR s.creada_en >= NOW() - INTERVAL 48 HOUR)`
+        );
         p.push(...ESTADOS_ABIERTOS);
     }
     if (f.bloque) {
@@ -150,7 +151,11 @@ export async function bloquearSolicitud(c: PoolConnection, id: number) {
 }
 
 export async function registrarEvento(c: Conexion, idSolicitud: number, tipo: string, idEmpleado: number | null, detalle: string | null = null) {
-    await ejecutar('INSERT INTO solicitud_evento (id_solicitud, tipo, id_empleado, detalle) VALUES (?, ?, ?, ?)', [idSolicitud, tipo, idEmpleado, detalle?.slice(0, 500) ?? null], c);
+    await ejecutar(
+        'INSERT INTO solicitud_evento (id_solicitud, tipo, id_empleado, detalle) VALUES (?, ?, ?, ?)',
+        [idSolicitud, tipo, idEmpleado, detalle?.slice(0, 500) ?? null],
+        c
+    );
 }
 
 /** La habitación queda operativa solo si no le quedan solicitudes abiertas. */

@@ -11,19 +11,22 @@ import { usuario } from '../auth/auth.js';
 export const rutasPublicasSistema = Router();
 export const rutasSistema = Router();
 
-rutasPublicasSistema.get('/salud', ruta(async (_req, res) => {
-    try {
-        await pool.query('SELECT 1');
-        const pendientes = await migracionesPendientes();
-        res.status(pendientes.length ? 503 : 200).json({
-            mysql: true,
-            migraciones_pendientes: pendientes,
-            mensaje: pendientes.length ? 'Faltan migraciones: ejecuta "npm run migrar" en backend.' : 'OK'
-        });
-    } catch {
-        res.status(503).json({ mysql: false, mensaje: 'No se pudo conectar con MySQL.' });
-    }
-}));
+rutasPublicasSistema.get(
+    '/salud',
+    ruta(async (_req, res) => {
+        try {
+            await pool.query('SELECT 1');
+            const pendientes = await migracionesPendientes();
+            res.status(pendientes.length ? 503 : 200).json({
+                mysql: true,
+                migraciones_pendientes: pendientes,
+                mensaje: pendientes.length ? 'Faltan migraciones: ejecuta "npm run migrar" en backend.' : 'OK'
+            });
+        } catch {
+            res.status(503).json({ mysql: false, mensaje: 'No se pudo conectar con MySQL.' });
+        }
+    })
+);
 
 rutasSistema.get('/eventos', (_req, res) => conectar(res, usuario(res)));
 
@@ -41,18 +44,24 @@ const esquemaPush = z.object({
     keys: z.object({ p256dh: z.string().max(200), auth: z.string().max(100) })
 });
 
-rutasSistema.post('/push/suscribir', ruta(async (req, res) => {
-    const s = validar(esquemaPush, req.body);
-    await ejecutar(
-        `INSERT INTO push_suscripcion (id_empleado, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
+rutasSistema.post(
+    '/push/suscribir',
+    ruta(async (req, res) => {
+        const s = validar(esquemaPush, req.body);
+        await ejecutar(
+            `INSERT INTO push_suscripcion (id_empleado, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE id_empleado = VALUES(id_empleado), p256dh = VALUES(p256dh), auth = VALUES(auth)`,
-        [usuario(res).id_empleado, s.endpoint, s.keys.p256dh, s.keys.auth]
-    );
-    res.status(201).json({ ok: true });
-}));
+            [usuario(res).id_empleado, s.endpoint, s.keys.p256dh, s.keys.auth]
+        );
+        res.status(201).json({ ok: true });
+    })
+);
 
-rutasSistema.post('/push/cancelar', ruta(async (req, res) => {
-    const { endpoint } = validar(z.object({ endpoint: z.string().max(500) }), req.body);
-    await ejecutar('DELETE FROM push_suscripcion WHERE endpoint = ? AND id_empleado = ?', [endpoint, usuario(res).id_empleado]);
-    res.json({ ok: true });
-}));
+rutasSistema.post(
+    '/push/cancelar',
+    ruta(async (req, res) => {
+        const { endpoint } = validar(z.object({ endpoint: z.string().max(500) }), req.body);
+        await ejecutar('DELETE FROM push_suscripcion WHERE endpoint = ? AND id_empleado = ?', [endpoint, usuario(res).id_empleado]);
+        res.json({ ok: true });
+    })
+);

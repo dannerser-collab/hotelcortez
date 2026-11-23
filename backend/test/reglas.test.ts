@@ -1,8 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    prioridadPorOcupacion, requiereSupervisor, enTurno, turnoActual, puedePasar, estadoTrasReporte,
-    normalizarMaterial, idDesdeCodigo, codigoEmpleado, codigoIncidente
+    prioridadPorOcupacion,
+    requiereSupervisor,
+    enTurno,
+    turnoActual,
+    puedePasar,
+    estadoTrasReporte,
+    normalizarMaterial,
+    idDesdeCodigo,
+    codigoEmpleado,
+    codigoIncidente
 } from '../src/domain/reglas.js';
 
 test('prioridad según ocupación', () => {
