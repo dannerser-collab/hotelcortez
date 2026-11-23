@@ -7,9 +7,22 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "migrar": "tsx src/db/cli.ts migrar",
+    "semilla": "tsx src/db/cli.ts semilla",
+    "clave": "tsx src/db/cli.ts clave",
+    "test": "tsx --test test/*.test.ts",
+    "respaldo": "node scripts/respaldo.mjs",
+    "lint": "eslint src test",
+    "format": "prettier --write src test"
   },
-  "keywords": ["hotel", "mantenimiento", "cmms", "express", "mysql2"],
+  "keywords": [
+    "hotel",
+    "mantenimiento",
+    "cmms",
+    "express",
+    "mysql2"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -17,15 +30,18 @@
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^4.22.1",
-    "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.16.2"
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.3.0",
+    "mysql2": "^3.16.2",
+    "web-push": "^4.0.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.3.0",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

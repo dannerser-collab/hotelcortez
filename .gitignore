@@ -29,3 +29,11 @@ Thumbs.db
 *.swp
 *.swo
 
+
+# Datos locales
+backend/uploads/
+backups/
+
+# Herramientas de agentes (locales)
+.agents/
+skills-lock.json
