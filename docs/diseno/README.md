@@ -2,6 +2,7 @@
 
 Esta carpeta está destinada exclusivamente a recopilar ideas visuales, bocetos, paleta de colores, referencias y mockups sin interferir con el código fuente del proyecto.
 
+
 ---
 
 ## 📂 Archivos disponibles:
@@ -10,3 +11,5 @@ Esta carpeta está destinada exclusivamente a recopilar ideas visuales, bocetos,
 2. **[`ideas_movil_app.md`](./ideas_movil_app.md):** Escribe aquí cómo imaginas la vista para teléfonos celulares (botones grandes para camareras, lista de tareas del técnico, captura de fotos).
 3. **`imagenes/`:** Guarda aquí capturas de pantalla, dibujos o imágenes de referencia que te gusten de otros sistemas.
 
+
+4. **[`analisis_diagrama_gestion_incidentes.md`](./analisis_diagrama_gestion_incidentes.md):** Qué se tomó del diagrama físico propuesto y qué no, y por qué.
