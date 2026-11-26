@@ -35,7 +35,8 @@ rutasCatalogos.get(
                 ? []
                 : (
                       await filas(
-                          `SELECT e.id_empleado, e.nombre, e.apellido, t.codigo AS turno, t.hora_inicio, t.hora_fin,
+                          `SELECT e.id_empleado, e.nombre, e.apellido, t.codigo AS turno,
+                        COALESCE(e.hora_entrada, t.hora_inicio) AS hora_inicio, COALESCE(e.hora_salida, t.hora_fin) AS hora_fin,
                         (SELECT COUNT(*) FROM asignacion a JOIN solicitud s USING (id_solicitud)
                          WHERE a.id_tecnico = e.id_empleado AND s.estado IN ('ASIGNADA','EN_PROCESO','PENDIENTE')) AS activos
                        FROM empleado e LEFT JOIN turno t USING (id_turno)

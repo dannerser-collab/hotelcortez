@@ -53,10 +53,12 @@ export default function DetalleTecnico() {
                             )}
                         </Panel>
                     )}
-                    {mia && s.estado === 'ASIGNADA' && (
-                        <Panel titulo="Iniciar trabajo">
+                    {mia && (s.estado === 'ASIGNADA' || s.estado === 'PENDIENTE') && (
+                        <Panel titulo={s.estado === 'PENDIENTE' ? 'Reanudar trabajo' : 'Iniciar trabajo'}>
                             <p className="text-sm text-hotel-textMuted">
-                                Marca el inicio cuando llegues a la habitación. Sirve para medir los tiempos de respuesta.
+                                {s.estado === 'PENDIENTE'
+                                    ? 'Este trabajo quedó pendiente. Márcalo cuando vuelvas a la habitación para continuarlo.'
+                                    : 'Marca el inicio cuando llegues a la habitación. Sirve para medir los tiempos de respuesta.'}
                             </p>
                             <Boton
                                 className="w-full"
@@ -65,11 +67,11 @@ export default function DetalleTecnico() {
                                 onClick={() =>
                                     iniciar
                                         .mutateAsync(undefined)
-                                        .then(() => avisar('Trabajo iniciado.'))
+                                        .then(() => avisar(s.estado === 'PENDIENTE' ? 'Trabajo reanudado.' : 'Trabajo iniciado.'))
                                         .catch(e => avisar(e.message, 'error'))
                                 }
                             >
-                                <Play size={16} /> Iniciar trabajo
+                                <Play size={16} /> {s.estado === 'PENDIENTE' ? 'Reanudar trabajo' : 'Iniciar trabajo'}
                             </Boton>
                         </Panel>
                     )}

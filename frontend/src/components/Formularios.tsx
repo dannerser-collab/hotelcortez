@@ -13,7 +13,7 @@ export function materialesParaApi(filas: FilaMaterial[], catalogo: Material[]): 
     return filas
         .filter(f => f.nombre.trim())
         .map(f => {
-            const cantidad = Number(f.cantidad.replace(',', '.'));
+            const cantidad = Number(f.cantidad);
             const m = catalogo.find(x => x.nombre.toLowerCase() === f.nombre.trim().toLowerCase());
             return m ? { id_material: m.id_material, cantidad } : { nombre: f.nombre.trim(), cantidad };
         });
@@ -22,8 +22,8 @@ export function materialesParaApi(filas: FilaMaterial[], catalogo: Material[]): 
 export function validarMateriales(filas: FilaMaterial[]) {
     for (const f of filas) {
         if (!f.nombre.trim()) continue;
-        const n = Number(f.cantidad.replace(',', '.'));
-        if (!(n > 0)) return `Revisa la cantidad de "${f.nombre}".`;
+        const n = Number(f.cantidad);
+        if (!Number.isInteger(n) || n <= 0) return `La cantidad de "${f.nombre}" debe ser un número entero mayor a 0.`;
     }
     return null;
 }
@@ -57,9 +57,9 @@ export function EditorMateriales({ filas, onChange, catalogo }: { filas: FilaMat
                             aria-label="Material"
                         />
                         <input
-                            inputMode="decimal"
+                            inputMode="numeric"
                             value={f.cantidad}
-                            onChange={e => cambiar(i, { cantidad: e.target.value.replace(/[^\d.,]/g, '') })}
+                            onChange={e => cambiar(i, { cantidad: e.target.value.replace(/\D/g, '').slice(0, 4) })}
                             className="w-20 text-center font-semibold"
                             aria-label="Cantidad"
                         />

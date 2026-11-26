@@ -10,7 +10,10 @@ import {
     normalizarMaterial,
     idDesdeCodigo,
     codigoEmpleado,
-    codigoIncidente
+    codigoIncidente,
+    ubicacionHabitacion,
+    habitacionEnRango,
+    prioridadAlReiterar
 } from '../src/domain/reglas.js';
 
 test('prioridad según ocupación', () => {
@@ -63,4 +66,18 @@ test('normalización y códigos', () => {
     assert.equal(idDesdeCodigo('7'), 7);
     assert.equal(idDesdeCodigo('X-1'), null);
     assert.equal(codigoIncidente(3), 'INC-003');
+    assert.deepEqual(ubicacionHabitacion('124'), { bloque: 100, piso: 1 });
+    assert.deepEqual(ubicacionHabitacion('322'), { bloque: 300, piso: 3 });
+    assert.ok(habitacionEnRango('100') && habitacionEnRango('499'));
+    assert.ok(!habitacionEnRango('099') && !habitacionEnRango('500') && !habitacionEnRango('1240') && !habitacionEnRango('12'));
+});
+
+test('reiterar un incidente sube un nivel de prioridad', () => {
+    assert.equal(prioridadAlReiterar(3), 2); // Baja → Media
+    assert.equal(prioridadAlReiterar(2), 1); // Media → Alta
+    assert.equal(prioridadAlReiterar(1), 0); // Alta → Urgente
+    assert.equal(prioridadAlReiterar(0), 0); // Urgente se queda
+    assert.equal(prioridadAlReiterar(3, 'OCUPADA'), 0); // la ocupación manda si exige más
+    assert.equal(prioridadAlReiterar(3, 'RESERVADA'), 1);
+    assert.equal(prioridadAlReiterar(2, 'LIBRE'), 1);
 });

@@ -17,6 +17,7 @@ SELECT s.id_solicitud, s.problema, s.ocupacion, s.nivel_prioridad, s.estado, s.c
        a.id_dificultad, d.nombre AS dificultad, a.id_especialidad, es.nombre_especialidad AS especialidad,
        ur.id_reporte AS id_ultimo_reporte, ur.resultado AS ultimo_resultado, ur.observacion AS ultima_observacion,
        ur.motivo_pendiente, ur.creado_en AS ultimo_reporte_en,
+       (SELECT COUNT(*) FROM solicitud_evento ev WHERE ev.id_solicitud = s.id_solicitud AND ev.tipo = 'REITERADA') AS veces_reiterada,
        (SELECT GROUP_CONCAT(CONCAT(mt.nombre_mat, ' ×', TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM rm.cantidad))) SEPARATOR ', ')
           FROM reporte r2 JOIN reporte_material rm USING (id_reporte) JOIN material mt USING (id_material)
           WHERE r2.id_asignacion = a.id_asignacion) AS materiales
@@ -43,7 +44,12 @@ export type FiltrosSolicitud = {
 
 /** Qué puede ver cada rol. */
 function alcance(u: Usuario): { where: string; params: unknown[] } {
-    if (u.rol === 'MUCAMA') return { where: 's.id_empleado = ?', params: [u.id_empleado] };
+    // La mucama ve lo que reportó y también lo que volvió a reportar (aunque lo haya creado otra mucama)
+    if (u.rol === 'MUCAMA')
+        return {
+            where: "(s.id_empleado = ? OR EXISTS (SELECT 1 FROM solicitud_evento ev WHERE ev.id_solicitud = s.id_solicitud AND ev.tipo = 'REITERADA' AND ev.id_empleado = ?))",
+            params: [u.id_empleado, u.id_empleado]
+        };
     if (u.rol === 'TECNICO') return { where: "(a.id_tecnico = ? OR (s.estado = 'SIN_ASIGNAR' AND s.nivel_prioridad >= 2))", params: [u.id_empleado] };
     return { where: '1 = 1', params: [] };
 }

@@ -4,6 +4,7 @@ import { Search } from 'lucide-react';
 import { api } from '../../lib/api';
 import { CLAVES, useAccion, useSolicitudes } from '../../hooks/datos';
 import { useAvisos } from '../../hooks/avisos';
+import { useSesion } from '../../hooks/sesion';
 import { Boton, Campo, Cargando, ErrorCarga, Modal, Pagina, Pestanas, Vacio } from '../../components/ui';
 import { TarjetaSolicitud } from '../../components/TarjetaSolicitud';
 import { SelectorFoto } from '../../components/Formularios';
@@ -17,6 +18,7 @@ export default function MisSolicitudes() {
     const { data, isLoading, error, refetch } = useSolicitudes({ historial: vista === 'historial', q: q.trim() || undefined });
     const [editar, setEditar] = useState<Solicitud | null>(null);
     const { avisar } = useAvisos();
+    const { usuario } = useSesion();
     const anular = useAccion((id: number) => api(`/solicitudes/${id}/anular`, { cuerpo: {} }), [CLAVES.solicitudes, CLAVES.catalogos]);
 
     return (
@@ -49,7 +51,9 @@ export default function MisSolicitudes() {
                             s={s}
                             extra={s.tiene_foto && s.foto ? <Foto archivo={s.foto} alt={'Foto de ' + s.codigo} className="max-h-32 rounded-lg" /> : null}
                         >
-                            {s.estado === 'SIN_ASIGNAR' ? (
+                            {s.id_mucama !== usuario?.id_empleado ? (
+                                <p className="text-xs text-hotel-textMuted">La registró {s.mucama}. Tú la volviste a reportar.</p>
+                            ) : s.estado === 'SIN_ASIGNAR' ? (
                                 <>
                                     <Boton variante="primario" className="!py-2" onClick={() => setEditar(s)}>
                                         Modificar

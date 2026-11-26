@@ -37,6 +37,28 @@ export async function api<T = any>(ruta: string, opciones: { metodo?: string; cu
     return json as T;
 }
 
+/** Descarga un archivo de la API (con la sesión actual) y lo guarda en el equipo. */
+export async function descargar(ruta: string, nombrePorDefecto: string) {
+    let r: Response;
+    try {
+        r = await fetch('/api' + ruta, { headers: token.leer() ? { Authorization: 'Bearer ' + token.leer() } : {}, signal: AbortSignal.timeout(60000) });
+    } catch {
+        throw new ErrorApi(0, 'No hay conexión con el servidor. Revisa la red o que el sistema esté iniciado.');
+    }
+    if (!r.ok) {
+        const json = await r.json().catch(() => null);
+        if (r.status === 401) window.dispatchEvent(new Event('hc-sesion-expirada'));
+        throw new ErrorApi(r.status, json?.mensaje || `El servidor respondió con error ${r.status}.`);
+    }
+    const nombre = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') || '')?.[1] || nombrePorDefecto;
+    const url = URL.createObjectURL(await r.blob());
+    const a = Object.assign(document.createElement('a'), { href: url, download: nombre });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /** URL de query string sin valores vacíos. */
 export function qs(params: Record<string, string | number | boolean | undefined | null>) {
     const p = new URLSearchParams();

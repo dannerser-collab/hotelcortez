@@ -25,6 +25,16 @@ export function prioridadPorOcupacion(ocupacion: Ocupacion, elegidaSiLibre?: num
     return [1, 2, 3].includes(n) ? n : PRIORIDADES.MEDIA;
 }
 
+/**
+ * Prioridad cuando otra mucama (u otro turno) vuelve a reportar un incidente que sigue abierto:
+ * sube un nivel (Baja → Media → Alta → Urgente) y nunca queda por debajo de lo que exige la ocupación actual.
+ */
+export function prioridadAlReiterar(nivelActual: number, ocupacion?: Ocupacion): number {
+    const escalada = Math.max(PRIORIDADES.URGENTE, nivelActual - 1);
+    const porOcupacion = ocupacion && ocupacion !== 'LIBRE' ? prioridadPorOcupacion(ocupacion) : PRIORIDADES.BAJA;
+    return Math.min(escalada, porOcupacion);
+}
+
 /** Urgente y Alta solo las asigna el supervisor; Media y Baja las puede tomar un técnico. */
 export function requiereSupervisor(nivel: number) {
     return nivel <= PRIORIDADES.ALTA;
@@ -66,6 +76,24 @@ export function puedePasar(de: EstadoSolicitud, a: EstadoSolicitud) {
 /** Estado de la solicitud tras un reporte del técnico o supervisor. */
 export function estadoTrasReporte(resultado: 'HECHO' | 'PENDIENTE'): EstadoSolicitud {
     return resultado === 'HECHO' ? 'RESUELTA' : 'PENDIENTE';
+}
+
+/** Habitaciones que existen en el hotel: bloques 100 a 400 (números 100–499). */
+export const RANGO_HABITACIONES = { min: 100, max: 499 } as const;
+
+export function habitacionEnRango(numero: string) {
+    if (!/^\d{3}$/.test(String(numero).trim())) return false;
+    const n = Number(numero);
+    return n >= RANGO_HABITACIONES.min && n <= RANGO_HABITACIONES.max;
+}
+
+/** Tipos de habitación que la mucama elige al reportar. */
+export const TIPOS_HABITACION = ['Habitación ejecutiva', 'Habitación doble', 'Suite ejecutiva'] as const;
+
+/** Bloque y piso según el primer dígito del número: 124 → bloque 100, piso 1; 322 → bloque 300, piso 3. */
+export function ubicacionHabitacion(numero: string) {
+    const d = Number(String(numero).trim()[0]);
+    return { bloque: d * 100, piso: d };
 }
 
 /** Normaliza el nombre de un material para evitar duplicados ("foco  led " → "Foco led"). */

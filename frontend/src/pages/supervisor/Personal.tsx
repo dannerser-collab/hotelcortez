@@ -1,6 +1,6 @@
-// Supervisor · Personal y turnos: aprobar solicitudes de acceso, turnos, estado, rol y contraseñas.
+// Supervisor · Personal y turnos: alta de personal, aprobar solicitudes de acceso, turnos, estado, rol y contraseñas.
 import { useState } from 'react';
-import { KeyRound, UserCheck } from 'lucide-react';
+import { KeyRound, UserCheck, UserPlus } from 'lucide-react';
 import { api } from '../../lib/api';
 import { ROL, TURNO } from '../../lib/dominio';
 import { fecha } from '../../lib/formato';
@@ -9,6 +9,7 @@ import { useAvisos } from '../../hooks/avisos';
 import { useUsuario } from '../../hooks/sesion';
 import { Boton, Cargando, ErrorCarga, Pagina, Panel, Vacio } from '../../components/ui';
 import type { Empleado } from '../../types';
+import { NuevoEmpleado } from './NuevoEmpleado';
 
 const ESTADOS: Record<number, string> = { 1: 'Activo', 2: 'De vacaciones', 3: 'De baja', 4: 'Pendiente de aprobación' };
 
@@ -23,6 +24,7 @@ export default function Personal() {
     );
     const clave = useAccion((v: { id: number; nueva: string }) => api(`/empleados/${v.id}/clave`, { cuerpo: { nueva: v.nueva } }), []);
     const [filtro, setFiltro] = useState<'' | 'MUCAMA' | 'TECNICO' | 'SUPERVISOR'>('');
+    const [nuevo, setNuevo] = useState(false);
 
     if (isLoading) return <Cargando />;
     if (error || !data) return <ErrorCarga error={error} reintentar={refetch} />;
@@ -35,7 +37,16 @@ export default function Personal() {
             .catch(er => avisar(er.message, 'error'));
 
     return (
-        <Pagina titulo="Personal y turnos" subtitulo={cat?.turno_actual ? `Turno actual: ${TURNO[cat.turno_actual]}` : undefined}>
+        <Pagina
+            titulo="Personal y turnos"
+            subtitulo={cat?.turno_actual ? `Turno actual: ${TURNO[cat.turno_actual]}` : undefined}
+            acciones={
+                <Boton variante="dorado" onClick={() => setNuevo(true)}>
+                    <UserPlus size={16} /> Agregar personal
+                </Boton>
+            }
+        >
+            {nuevo && <NuevoEmpleado onCerrar={() => setNuevo(false)} />}
             {pendientes.length > 0 && (
                 <Panel titulo={`Solicitudes de acceso (${pendientes.length})`} className="border-hotel-accent">
                     <ul className="divide-y divide-[#EDE8DC]">
@@ -108,6 +119,9 @@ export default function Personal() {
                                             <p className="text-xs text-hotel-textMuted">
                                                 {e.codigo} · {e.telefono || 'sin teléfono'}
                                             </p>
+                                            {e.rol === 'TECNICO' && (
+                                                <p className="text-[11px] text-hotel-textMuted">{e.especialidades || 'Sin especialidades registradas'}</p>
+                                            )}
                                         </td>
                                         <td className="py-2 pr-3">
                                             <select
@@ -136,6 +150,11 @@ export default function Personal() {
                                                     </option>
                                                 ))}
                                             </select>
+                                            {e.hora_entrada && (
+                                                <p className="text-[11px] text-hotel-textMuted mt-1">
+                                                    Horario {e.hora_entrada}–{e.hora_salida}
+                                                </p>
+                                            )}
                                         </td>
                                         <td className="py-2 pr-3">
                                             <select

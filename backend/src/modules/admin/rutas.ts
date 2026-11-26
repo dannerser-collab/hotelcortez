@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { fila, filas, ejecutar, transaccion } from '../../db/pool.js';
 import { falla, ruta, validar, idValido, texto } from '../../lib/http.js';
 import { avisar } from '../../lib/tiempoReal.js';
-import { codigoEmpleado, normalizarMaterial } from '../../domain/reglas.js';
+import { codigoEmpleado, normalizarMaterial, ubicacionHabitacion } from '../../domain/reglas.js';
 import { permitir, usuario } from '../auth/auth.js';
 
 export const rutasAdmin = Router();
@@ -67,8 +67,9 @@ rutasAdmin.post(
             }),
             req.body
         );
-        const bloque = Number(d.numero[0]) * 100;
-        const piso = d.piso ?? Number(d.numero[0]);
+        const ubic = ubicacionHabitacion(d.numero);
+        const bloque = ubic.bloque;
+        const piso = d.piso ?? ubic.piso;
         await transaccion(async c => {
             if (await fila('SELECT 1 FROM habitacion WHERE numero = ?', [d.numero], c)) falla(409, `La habitación ${d.numero} ya existe.`);
             await ejecutar('INSERT IGNORE INTO bloque (bloque) VALUES (?)', [bloque], c);
@@ -128,11 +129,83 @@ rutasAdmin.get(
     ruta(async (_req, res) => {
         const r = await filas(
             `SELECT e.id_empleado, e.ci, e.nombre, e.apellido, e.telefono, e.rol, e.id_estado_empleado, ee.nombre_estado AS estado,
-                t.codigo AS turno, e.creado_en
+                t.codigo AS turno, e.creado_en,
+                TIME_FORMAT(COALESCE(e.hora_entrada, t.hora_inicio), '%H:%i') AS hora_entrada,
+                TIME_FORMAT(COALESCE(e.hora_salida, t.hora_fin), '%H:%i') AS hora_salida,
+                (SELECT GROUP_CONCAT(es.nombre_especialidad ORDER BY es.nombre_especialidad SEPARATOR ', ')
+                   FROM tecnico_especialidad te JOIN especialidad es USING (id_especialidad) WHERE te.id_empleado = e.id_empleado) AS especialidades
          FROM empleado e JOIN estado_empleado ee USING (id_estado_empleado) LEFT JOIN turno t USING (id_turno)
          ORDER BY e.id_estado_empleado = 4 DESC, e.rol, e.nombre`
         );
         res.json(r.map(e => ({ ...e, codigo: codigoEmpleado(e.id_empleado) })));
+    })
+);
+
+const horaValida = z
+    .string()
+    .trim()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora inválida (usa HH:MM).');
+
+const esquemaNuevoEmpleado = z
+    .object({
+        rol: z.enum(['MUCAMA', 'TECNICO'], { message: 'Elige si es mucama o técnico.' }),
+        nombre: texto(60, 'el nombre'),
+        apellido: texto(60, 'el apellido'),
+        ci: z
+            .string()
+            .trim()
+            .regex(/^[0-9A-Za-z-]{5,15}$/, 'CI inválido.'),
+        telefono: z
+            .string()
+            .trim()
+            .regex(/^\+?\d{6,15}$/, 'Teléfono inválido.'),
+        turno: z.enum(['MANANA', 'TARDE', 'NOCHE'], { message: 'Elige un turno.' }),
+        hora_entrada: horaValida,
+        hora_salida: horaValida,
+        especialidades: z.array(z.coerce.number().int().positive()).max(20).default([]),
+        password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.').max(100)
+    })
+    .refine(d => d.hora_entrada !== d.hora_salida, { message: 'La hora de entrada y la de salida no pueden ser iguales.' })
+    .refine(d => d.rol !== 'TECNICO' || d.especialidades.length > 0, { message: 'Elige al menos una especialidad para el técnico.' });
+
+/** Alta directa de personal por el supervisor: la cuenta queda activa. */
+rutasAdmin.post(
+    '/empleados',
+    soloSupervisor,
+    ruta(async (req, res) => {
+        const d = validar(esquemaNuevoEmpleado, req.body);
+        const especialidades = d.rol === 'TECNICO' ? [...new Set(d.especialidades)] : [];
+        const id = await transaccion(async c => {
+            if (await fila('SELECT 1 FROM empleado WHERE ci = ? FOR UPDATE', [d.ci], c)) falla(409, 'Ya existe un empleado con ese CI.');
+            if (especialidades.length) {
+                const ok = await filas('SELECT id_especialidad FROM especialidad WHERE id_especialidad IN (?)', [especialidades], c);
+                if (ok.length !== especialidades.length) falla(400, 'Alguna especialidad no existe.');
+            }
+            const ins = await ejecutar(
+                `INSERT INTO empleado (id_area, id_estado_empleado, nombre, apellido, telefono, ci, rol, id_turno, hora_entrada, hora_salida, password_hash)
+                 SELECT ?, 1, ?, ?, ?, ?, ?, id_turno, ?, ?, ? FROM turno WHERE codigo = ?`,
+                [
+                    d.rol === 'MUCAMA' ? 1 : 2,
+                    d.nombre,
+                    d.apellido,
+                    d.telefono,
+                    d.ci,
+                    d.rol,
+                    d.hora_entrada,
+                    d.hora_salida,
+                    await bcrypt.hash(d.password, 10),
+                    d.turno
+                ],
+                c
+            );
+            if (!ins.insertId) falla(400, 'Turno inválido.');
+            for (const esp of especialidades)
+                await ejecutar('INSERT INTO tecnico_especialidad (id_empleado, id_especialidad) VALUES (?, ?)', [ins.insertId, esp], c);
+            return ins.insertId;
+        });
+        avisar('personal');
+        avisar('catalogos');
+        res.status(201).json({ id_empleado: id, codigo: codigoEmpleado(id) });
     })
 );
 
@@ -153,8 +226,10 @@ rutasAdmin.patch(
             falla(400, 'No puedes desactivar ni cambiar el rol de tu propia cuenta.');
         const r = await ejecutar(
             `UPDATE empleado SET id_estado_empleado = COALESCE(?, id_estado_empleado), rol = COALESCE(?, rol),
-         id_turno = COALESCE((SELECT id_turno FROM turno WHERE codigo = ?), id_turno) WHERE id_empleado = ?`,
-            [d.id_estado_empleado ?? null, d.rol ?? null, d.turno ?? null, id]
+         id_turno = COALESCE((SELECT id_turno FROM turno WHERE codigo = ?), id_turno),
+         -- Al cambiar de turno rige el horario del nuevo turno
+         hora_entrada = IF(? IS NULL, hora_entrada, NULL), hora_salida = IF(? IS NULL, hora_salida, NULL) WHERE id_empleado = ?`,
+            [d.id_estado_empleado ?? null, d.rol ?? null, d.turno ?? null, d.turno ?? null, d.turno ?? null, id]
         );
         if (!r.affectedRows) falla(404, 'Empleado no encontrado.');
         if (d.id_estado_empleado && d.id_estado_empleado !== 1) await ejecutar('DELETE FROM sesion WHERE id_empleado = ?', [id]);
@@ -181,7 +256,7 @@ rutasAdmin.post(
 const esquemaMaterial = z.object({
     nombre: texto(80, 'el nombre del material').optional(),
     unidad: z.string().trim().min(1).max(20).optional(),
-    stock: z.coerce.number().min(0).max(999999).optional().nullable(),
+    stock: z.coerce.number().int('El stock debe ser un número entero.').min(0).max(999999).optional().nullable(),
     activo: z.boolean().optional()
 });
 

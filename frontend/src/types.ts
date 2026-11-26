@@ -92,6 +92,23 @@ export type Solicitud = {
     motivo_pendiente: string | null;
     ultimo_reporte_en: string | null;
     materiales: string | null;
+    veces_reiterada: number;
+};
+
+/** Incidente abierto en una habitación (aviso antes de duplicar un reporte). */
+export type IncidenteAbierto = {
+    id_solicitud: number;
+    codigo: string;
+    problema: string;
+    estado: EstadoSolicitud;
+    nivel_prioridad: number;
+    ocupacion: Ocupacion;
+    creada_en: string;
+    mucama: string;
+    turno_mucama: CodigoTurno | null;
+    es_mia: boolean;
+    veces_reiterada: number;
+    ya_reiterada: boolean;
 };
 
 export type MaterialReporte = { id_reporte: number; id_material: number; nombre_mat: string; unidad: string; cantidad: number };
@@ -146,6 +163,9 @@ export type Empleado = {
     estado: string;
     turno: CodigoTurno | null;
     creado_en: string;
+    hora_entrada: string | null;
+    hora_salida: string | null;
+    especialidades: string | null;
 };
 
 export type MaterialEntrada = { id_material?: number; nombre?: string; cantidad: number };

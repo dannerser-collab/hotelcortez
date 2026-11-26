@@ -63,7 +63,24 @@ export const EVENTO: Record<string, string> = {
     ANULADA: 'Anulada',
     REPORTE_EDITADO: 'Reporte modificado por el supervisor',
     MODIF_SOLICITADA: 'Técnico pidió modificar su reporte',
-    MODIF_HECHA: 'Modificación aplicada'
+    MODIF_HECHA: 'Modificación aplicada',
+    REITERADA: 'Reportada de nuevo por otra mucama/turno'
 };
 
 export const requiereSupervisor = (nivel: number) => nivel <= 1;
+
+/** Habitaciones del hotel: bloques 100 a 400 (números 100–499). Igual que el backend. */
+export function habitacionEnRango(numero: string) {
+    return /^\d{3}$/.test(numero) && Number(numero) >= 100 && Number(numero) <= 499;
+}
+
+/** Tipos de habitación que la mucama elige al reportar (los mismos que acepta el backend). */
+export const TIPOS_HABITACION = ['Habitación ejecutiva', 'Habitación doble', 'Suite ejecutiva'] as const;
+export type TipoHabitacion = (typeof TIPOS_HABITACION)[number];
+
+/** Bloque y piso según el primer dígito (igual que el backend): 124 → bloque 100, piso 1. */
+export function ubicacionHabitacion(numero: string): { bloque: number; piso: number } | null {
+    if (!habitacionEnRango(numero)) return null;
+    const d = Number(numero[0]);
+    return { bloque: d * 100, piso: d };
+}

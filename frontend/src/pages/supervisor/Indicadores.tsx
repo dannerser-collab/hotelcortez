@@ -1,10 +1,12 @@
 // Supervisor · Indicadores: tiempos de respuesta (MTTR), carga por técnico, especialidad,
 // habitaciones más reportadas y materiales. Gráficos de una sola serie (un tono), con valores visibles.
 import { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import { duracion, cantidad } from '../../lib/formato';
 import { useIndicadores } from '../../hooks/datos';
-import { Cargando, ErrorCarga, Pagina, Panel, Pestanas, Vacio } from '../../components/ui';
+import { useAvisos } from '../../hooks/avisos';
+import { descargar } from '../../lib/api';
+import { Boton, Cargando, ErrorCarga, Pagina, Panel, Pestanas, Vacio } from '../../components/ui';
 
 type Fila = { etiqueta: string; valor: number; detalle?: string };
 
@@ -96,9 +98,31 @@ function Tendencia({ dias }: { dias: { dia: string; reportadas: number; resuelta
 export default function Indicadores() {
     const [dias, setDias] = useState<'7' | '30' | '90'>('30');
     const { data: d, isLoading, error, refetch } = useIndicadores(Number(dias));
+    const { avisar } = useAvisos();
+    const [exportando, setExportando] = useState(false);
+
+    async function exportar() {
+        setExportando(true);
+        try {
+            await descargar(`/indicadores/excel?dias=${dias}`, `indicadores-${dias}d.xlsx`);
+            avisar('Excel descargado.');
+        } catch (e) {
+            avisar((e as Error).message, 'error');
+        } finally {
+            setExportando(false);
+        }
+    }
 
     return (
-        <Pagina titulo="Indicadores" subtitulo="Tiempos medidos desde que la mucama reporta. MTTR = tiempo medio de reparación (inicio → resuelto).">
+        <Pagina
+            titulo="Indicadores"
+            subtitulo="Tiempos medidos desde que la mucama reporta. MTTR = tiempo medio de reparación (inicio → resuelto)."
+            acciones={
+                <Boton variante="dorado" cargando={exportando} onClick={() => void exportar()} title="Descarga todos los datos del periodo elegido">
+                    <FileSpreadsheet size={16} /> Exportar a Excel
+                </Boton>
+            }
+        >
             <Pestanas
                 valor={dias}
                 onChange={setDias}

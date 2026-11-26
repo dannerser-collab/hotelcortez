@@ -1,5 +1,6 @@
 // Tarjeta de solicitud coloreada por prioridad (diseño "Mis solicitudes" / "Asignaciones").
 import type { ReactNode } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { prioridad, TONO_TARJETA, OCUPACION } from '../lib/dominio';
 import { fecha, hora } from '../lib/formato';
 import type { Solicitud } from '../types';
@@ -29,6 +30,11 @@ export function TarjetaSolicitud({
                 </div>
                 <InsigniaPrioridad nivel={s.nivel_prioridad} />
             </div>
+            {Number(s.veces_reiterada) > 0 && !cerrada && (
+                <p className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-2 py-1 text-[11px] font-bold text-red-800">
+                    <RefreshCw size={12} /> Reportada de nuevo{Number(s.veces_reiterada) > 1 ? ` ×${s.veces_reiterada}` : ''} · sigue sin resolverse
+                </p>
+            )}
             {mostrarProblema && <p className="text-sm text-hotel-dark whitespace-pre-wrap line-clamp-3">{s.problema}</p>}
             <div className="grid grid-cols-3 gap-3">
                 <Dato etiqueta="Hora">{hora(s.creada_en)}</Dato>

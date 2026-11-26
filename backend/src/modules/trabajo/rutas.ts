@@ -108,7 +108,11 @@ rutasTrabajo.post(
 const esquemaMaterial = z.object({
     id_material: z.coerce.number().int().positive().optional(),
     nombre: z.string().trim().max(80).optional(),
-    cantidad: z.coerce.number({ message: 'Cantidad inválida.' }).positive('La cantidad debe ser mayor a 0.').max(9999)
+    cantidad: z.coerce
+        .number({ message: 'Cantidad inválida.' })
+        .int('La cantidad debe ser un número entero.')
+        .positive('La cantidad debe ser mayor a 0.')
+        .max(9999)
 });
 
 const esquemaReporte = z
@@ -152,6 +156,14 @@ async function guardarMaterialesReporte(c: PoolConnection, idReporte: number, ma
     );
     await ejecutar('DELETE FROM reporte_material WHERE id_reporte = ?', [idReporte], c);
     for (const [id, cant] of mats) {
+        // El stock nunca queda negativo: si no alcanza, se rechaza todo el reporte (la transacción se revierte)
+        const m = await fila<{ nombre_mat: string; unidad: string; stock: string | null }>(
+            'SELECT nombre_mat, unidad, stock FROM material WHERE id_material = ? FOR UPDATE',
+            [id],
+            c
+        );
+        if (m && m.stock !== null && Number(m.stock) < cant)
+            falla(409, `Stock insuficiente de "${m.nombre_mat}": quedan ${Number(m.stock)} ${m.unidad} y se reportaron ${cant}.`);
         await ejecutar('INSERT INTO reporte_material (id_reporte, id_material, cantidad) VALUES (?, ?, ?)', [idReporte, id, cant], c);
         await ejecutar('UPDATE material SET stock = stock - ? WHERE id_material = ? AND stock IS NOT NULL', [cant, id], c);
     }

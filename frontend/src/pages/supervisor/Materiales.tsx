@@ -47,7 +47,7 @@ export default function Materiales() {
                         ))}
                     </datalist>
                     <Campo etiqueta="Stock">
-                        <input inputMode="decimal" value={nuevo.stock} onChange={e => setNuevo({ ...nuevo, stock: e.target.value.replace(/[^\d.]/g, '') })} />
+                        <input inputMode="numeric" value={nuevo.stock} onChange={e => setNuevo({ ...nuevo, stock: e.target.value.replace(/\D/g, '') })} />
                     </Campo>
                     <Boton cargando={crear.isPending}>
                         <Plus size={16} /> Agregar
@@ -82,12 +82,12 @@ export default function Materiales() {
                                     <td className="py-2 pr-3">
                                         <input
                                             className="!py-1.5 w-24"
-                                            inputMode="decimal"
+                                            inputMode="numeric"
                                             defaultValue={m.stock ?? ''}
                                             placeholder="—"
                                             onBlur={e => {
                                                 const v = e.target.value.trim() === '' ? null : Number(e.target.value);
-                                                if (v !== m.stock && (v === null || v >= 0)) void guardar(m, { stock: v });
+                                                if (v !== m.stock && (v === null || (Number.isInteger(v) && v >= 0))) void guardar(m, { stock: v });
                                             }}
                                         />
                                         {m.stock !== null && m.stock <= 3 && <span className="ml-2 text-[11px] font-bold text-red-700">Bajo</span>}
